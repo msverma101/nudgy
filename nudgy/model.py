@@ -6,7 +6,7 @@ import os
 import re
 import tempfile
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -43,6 +43,13 @@ class Item:
     end: str | None = None         # calendar events only
     url: str = ""
     tags: list[str] = field(default_factory=list)   # starred, important, message, invitation, job
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Item":
+        """Builds an item from saved data, ignoring fields this version doesn't know (a newer Nudgy may
+        have written them), so an older version never crashes on a newer file."""
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in known})
 
     @property
     def all_day(self) -> bool:
@@ -332,6 +339,18 @@ def friendly_time(item: Item, now: datetime) -> str:
     return f"Overdue · {day} {clock}" if due < now else f"{day} {clock}"
 
 
+STATE_VERSION = 1
+STATE_KEYS = ("version", "notes", "synced", "overrides", "dismissed", "steps", "places", "snoozed", "window")
+
+
+def migrate(raw: dict) -> dict:
+    """Brings a saved state up to STATE_VERSION. Version 0 is the file before it had a version."""
+    version = raw.get("version", 0)
+    if version < 1:
+        raw = {**raw, "version": 1}           # 0 -> 1: only the version field is new
+    return raw
+
+
 class Store:
     """Everything local: your notes, priority changes, dismissed items and the last synced items."""
 
@@ -346,6 +365,8 @@ class Store:
         self.places: dict[str, float] = {}         # id -> position you dragged it to
         self.snoozed: dict[str, str] = {}          # id -> hidden until this time (ISO)
         self.window: dict = {}
+        self.extra: dict = {}
+        self.file_version = STATE_VERSION
         self.load()
 
     def load(self) -> None:
@@ -357,8 +378,12 @@ class Store:
             # Keep the damaged file for recovery rather than overwriting it on the next save.
             self.path.replace(self.path.with_suffix(".corrupt"))
             return
-        self.notes = [Item(**note) for note in raw.get("notes", [])]
-        self.synced = {k: [Item(**i) for i in v] for k, v in raw.get("synced", {}).items()}
+        raw = migrate(raw)
+        # Sections a newer version added are kept as they are and written back unchanged.
+        self.extra = {k: v for k, v in raw.items() if k not in STATE_KEYS}
+        self.file_version = raw.get("version", STATE_VERSION)
+        self.notes = [Item.from_dict(note) for note in raw.get("notes", [])]
+        self.synced = {k: [Item.from_dict(i) for i in v] for k, v in raw.get("synced", {}).items()}
         self.overrides = raw.get("overrides", {})
         self.dismissed = raw.get("dismissed", {})
         self.steps = raw.get("steps", {})
@@ -369,6 +394,8 @@ class Store:
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         payload = {
+            **self.extra,
+            "version": max(STATE_VERSION, self.file_version),   # never downgrade a newer file's version
             "notes": [asdict(n) for n in self.notes],
             "synced": {k: [asdict(i) for i in v] for k, v in self.synced.items()},
             "overrides": self.overrides, "dismissed": self.dismissed, "steps": self.steps, "places": self.places,
@@ -389,7 +416,7 @@ class Store:
 
     def restore(self, snapshot: str) -> None:
         raw = json.loads(snapshot)
-        self.notes = [Item(**n) for n in raw["notes"]]
+        self.notes = [Item.from_dict(n) for n in raw["notes"]]
         self.overrides, self.dismissed, self.steps = raw["overrides"], raw["dismissed"], raw["steps"]
         self.places = raw.get("places", {})
         self.snoozed = raw.get("snoozed", {})

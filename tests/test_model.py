@@ -315,3 +315,28 @@ class QuickAddDatesTest(QuickAddTimesTest):
         self.check("call with Alex tomorrow 11", "call with Alex", "2026-11-14T11:00:00+01:00")
         self.check("lunch monday 1", "lunch", "2026-11-16T13:00:00+01:00")
         self.check("buy 3 tickets tomorrow", "buy 3 tickets", "2026-11-14")
+
+
+class StateVersionTest(unittest.TestCase):
+    def test_unknown_fields_and_sections_survive(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "state.json"
+            path.write_text(json.dumps({
+                "version": 99, "future_section": {"keep": True},
+                "notes": [{"id": "note:1", "source": "note", "title": "Pay rent", "colour": "blue"}],
+                "synced": {"task": [{"id": "task:1", "source": "task", "title": "Call", "new_field": 1}]}}))
+            store = Store(path)
+            self.assertEqual([n.title for n in store.notes], ["Pay rent"])
+            self.assertEqual(store.synced["task"][0].title, "Call")
+            store.save()
+            saved = json.loads(path.read_text())
+            self.assertEqual(saved["future_section"], {"keep": True})
+            self.assertEqual(saved["version"], 99)            # not downgraded
+
+    def test_old_file_gets_a_version(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "state.json"
+            path.write_text(json.dumps({"notes": []}))
+            store = Store(path)
+            store.save()
+            self.assertEqual(json.loads(path.read_text())["version"], 1)
