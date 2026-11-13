@@ -40,7 +40,7 @@ def set_folder(path: str | None) -> None:
 
 
 def _entry(item: Item, moment: datetime) -> dict:
-    return {"title": item.title[:140], "when": friendly_time(item, moment), "source": item.source,
+    return {"id": item.id, "title": item.title[:140], "when": friendly_time(item, moment), "source": item.source,
             "url": item.url if item.url.startswith(("https://", "http://")) else ""}
 
 

@@ -258,13 +258,13 @@ class PetService : Service() {
     private fun announce(fresh: Snapshot) {
         val told = prefs.told
         val firstRun = told.isEmpty()
-        val keys = fresh.now.map { "now:" + it.title }.toSet()
+        val keys = fresh.now.map { "now:" + it.id }.toSet()
         prefs.told = (told.filter { it in keys } + keys).toSet().ifEmpty { setOf("-") }
         if (firstRun) {                              // don't announce everything the first time
             prefs.lastReminder = System.currentTimeMillis()
             return
         }
-        val urgent = fresh.now.firstOrNull { "now:" + it.title !in told }
+        val urgent = fresh.now.firstOrNull { "now:" + it.id !in told }
         if (urgent != null) {
             val text = urgent.title + if (urgent.whenText.isNotEmpty()) " (${urgent.whenText})" else ""
             pet.act("surprised", 1200)
@@ -379,6 +379,7 @@ class PetService : Service() {
             prefs.folder == null -> heading("Open the Nudgy app and pick the folder your laptop shares.")
             snapshot === Snapshot.EMPTY -> heading("No nudgy-now.json in that folder yet. Is the laptop sharing it?")
             else -> {
+                if (snapshot.newer) heading("Your laptop's Nudgy is newer than this app: please update the app.")
                 heading(if (snapshot.now.isEmpty()) "Nothing urgent. 🌿" else "Needs you now (${snapshot.pressing})")
                 snapshot.now.forEach(::row)
                 if (snapshot.soon.isNotEmpty()) heading("Soon")

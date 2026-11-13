@@ -17,12 +17,15 @@ data class Snapshot(
     val now: List<Entry>,
     val soon: List<Entry>,
     val updated: OffsetDateTime?,
+    /** The laptop's Nudgy writes a newer file format than this app knows: shown as "update the app". */
+    val newer: Boolean = false,
 ) {
     /** True when the laptop hasn't written for a while (asleep, off, or the sync stopped). */
     fun stale(): Boolean = updated == null || updated.plusHours(STALE_HOURS).isBefore(OffsetDateTime.now())
 
     companion object {
         const val FILE = "nudgy-now.json"
+        const val VERSION = 1                     // the file format this app reads
         const val STALE_HOURS = 3L
         val EMPTY = Snapshot(0, false, emptyList(), emptyList(), null)
 
@@ -39,7 +42,8 @@ data class Snapshot(
                 }
             }
             val updated = runCatching { OffsetDateTime.parse(json.optString("updated")) }.getOrNull()
-            return Snapshot(json.optInt("pressing"), json.optBoolean("alarm"), list("now"), list("soon"), updated)
+            return Snapshot(json.optInt("pressing"), json.optBoolean("alarm"), list("now"), list("soon"), updated,
+                newer = json.optInt("version", 1) > VERSION)
         }
 
         /** Reads nudgy-now.json from the folder you picked. Null when it can't be read. */

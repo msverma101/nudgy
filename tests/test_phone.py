@@ -20,6 +20,7 @@ class ExportTest(unittest.TestCase):
         data = phone.summary(self.scored(), NOW)
         self.assertEqual((data["pressing"], data["alarm"]), (1, True))
         self.assertEqual(data["now"][0]["title"], "Send application")
+        self.assertEqual(data["now"][0]["id"], "n1")            # the phone tells items apart by id
         self.assertEqual(data["now"][0]["url"], "")              # only web links reach the phone
         self.assertEqual([s["title"] for s in data["soon"]], ["Book flat viewing"])
 

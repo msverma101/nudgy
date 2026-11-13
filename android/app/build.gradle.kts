@@ -29,3 +29,9 @@ android {
         jvmTarget = "17"
     }
 }
+
+dependencies {
+    // Test-only: JUnit, and org.json (built into Android, but not into plain JVM unit tests).
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+}
