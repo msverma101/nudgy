@@ -18,10 +18,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import claude_notes, google
+from .sources import GROUPS as FULL_GROUPS          # one list of sync groups, kept in sources.py
 from .model import data_dir
 
 FULL_EVERY = 60 * 60
-FULL_GROUPS = ("google", "signal", "whatsapp", "keep", "claude", "events")   # same as sources.GROUPS
 SIGNAL_EVERY = 2 * 60
 
 
