@@ -203,7 +203,10 @@ def top_bar(cr, width, face, pressing):
     for radius in (3, 6, 9):                                            # wifi
         cr.arc(x, 24, radius, -2.36, -0.79)
         cr.stroke()
-    cr.move_to(x + 22, 13); cr.line_to(x + 30, 17); cr.line_to(x + 22, 21); cr.line_to(x + 22, 13)   # sound
+    cr.move_to(x + 22, 13)                                              # sound
+    cr.line_to(x + 30, 17)
+    cr.line_to(x + 22, 21)
+    cr.close_path()
     cr.fill()
     cr.arc(x + 34, 17, 5, -0.8, 0.8)
     cr.stroke()
@@ -235,7 +238,8 @@ def hero(list_shot, bubble_shot, pressing) -> None:
     surface.write_to_png(str(OUT / "desktop.png"))
 
 
-FACES = [("happy", "calm"), ("busy", "things need you"), ("alarm", "something's overdue"), ("cheer", "you ticked it off"),
+FACES = [("happy", "calm"), ("busy", "things need you"), ("alarm", "something's overdue"),
+         ("cheer", "you ticked it off"),
          ("love", "being petted"), ("sleep", "night time"), ("wink", "just because"), ("yawn", "sleepy"),
          ("surprised", "new urgent item"), ("hop", "a little jump"), ("sideeye", "are you drifting?"),
          ("sulk", "still drifting…"), ("back", "fine, ignore me"), ("listen", "listening to you"),

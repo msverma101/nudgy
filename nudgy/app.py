@@ -35,7 +35,8 @@ SOURCE_LABELS = {"note": "Note", "task": "Task", "calendar": "Calendar", "gmail"
 # Order of the clusters in the "by source" view.
 DRAG_TARGET = "NUDGY_ITEM"
 LEVEL_FOR_SECTION = {NOW: "high", SOON: "medium", LATER: "low"}
-CLUSTERS = (("note", "Notes"), ("claude", "Claude sessions"), ("calendar", "Calendar"), ("luma", "Luma"), ("potential", "Potential events"), ("task", "Google Tasks"), ("keep", "Google Keep"),
+CLUSTERS = (("note", "Notes"), ("claude", "Claude sessions"), ("calendar", "Calendar"), ("luma", "Luma"),
+            ("potential", "Potential events"), ("task", "Google Tasks"), ("keep", "Google Keep"),
             ("gmail", "Gmail"), ("linkedin", "LinkedIn"), ("signal", "Signal"), ("whatsapp", "WhatsApp"))
 OPENS_IN = {"calendar": "Google Calendar", "luma": "Luma", "task": "Google Tasks", "gmail": "Gmail",
             "linkedin": "Gmail", "signal": "Signal Desktop", "whatsapp": "WhatsApp Web", "note": "your browser",
@@ -83,14 +84,16 @@ list row:hover { background-color: #2a2f37; }
 .nudgy-step { font-size: 12px; color: #c4c7cc; }
 .nudgy-step.done { color: #6d7580; }
 .nudgy-step-x { min-height: 16px; min-width: 16px; font-size: 11px; color: #6d7580; }
-.nudgy-flat { background: none; border: none; box-shadow: none; color: #c4c7cc; min-height: 22px; min-width: 22px; padding: 0; }
+.nudgy-flat { background: none; border: none; box-shadow: none; color: #c4c7cc;
+              min-height: 22px; min-width: 22px; padding: 0; }
 .nudgy-flat:hover { color: #ffffff; background-color: #3a404a; }
 .nudgy-flat:disabled { color: #4a5059; }
 .nudgy-dot { font-size: 14px; }
 .nudgy-dot.now { color: #ff6b6b; }
 .nudgy-dot.soon { color: #ffc14d; }
 .nudgy-dot.later { color: #6d7580; }
-entry.nudgy-entry { background-color: #2a2f37; color: #e8eaed; border: none; border-radius: 0; box-shadow: none; padding: 8px 10px; }
+entry.nudgy-entry { background-color: #2a2f37; color: #e8eaed; border: none; border-radius: 0;
+                    box-shadow: none; padding: 8px 10px; }
 """
 
 

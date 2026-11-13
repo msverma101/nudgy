@@ -27,7 +27,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from .model import config_dir, data_dir, quiet_claude_env
 
@@ -169,7 +169,8 @@ def ask_local(app: str, title: str, tasks, config: dict, extra: str = "") -> Ver
                        "keep_alive": "2m",            # free the model's ~5 GB soon after the check
                        "options": {"temperature": 0},
                        "messages": [{"role": "system", "content": SYSTEM},
-                                    {"role": "user", "content": _prompt(app, title, tasks, extra, config["work_topics"])}]}).encode()
+                                    {"role": "user",
+                                     "content": _prompt(app, title, tasks, extra, config["work_topics"])}]}).encode()
     request = urllib.request.Request(config["ollama_url"].rstrip("/") + "/api/chat", data=body,
                                      headers={"Content-Type": "application/json"})
     try:
@@ -193,7 +194,8 @@ def wikipedia(term: str) -> str:
 def ask_claude(app: str, title: str, tasks, config: dict) -> tuple[Verdict | None, int]:
     """Returns the verdict and the tokens it used."""
     claude = shutil.which("claude") or str(Path.home() / ".local/bin/claude")
-    command = [claude, "-p", _prompt(app, title, tasks, topics=config["work_topics"]), "--model", config["claude_model"],
+    command = [claude, "-p", _prompt(app, title, tasks, topics=config["work_topics"]),
+               "--model", config["claude_model"],
                "--output-format", "json", "--tools", "", "--strict-mcp-config", "--no-session-persistence",
                "--setting-sources", "", "--system-prompt", SYSTEM]
     try:
@@ -331,7 +333,7 @@ def write_log(entry: dict, keep_days: int) -> None:
         out.write(json.dumps(entry) + "\n")
     if datetime.now().minute == 0:            # trim now and then
         cutoff = (datetime.now() - timedelta(days=keep_days)).isoformat()
-        lines = [l for l in path.read_text().splitlines() if l[10:36] >= cutoff[:26]]
+        lines = [line for line in path.read_text().splitlines() if line[10:36] >= cutoff[:26]]
         path.write_text("\n".join(lines) + "\n")
 
 
@@ -339,7 +341,7 @@ def summary(day: datetime | None = None) -> str:
     """Today's focus in words, from the log."""
     day_text = (day or datetime.now()).date().isoformat()
     try:
-        entries = [json.loads(l) for l in log_path().read_text().splitlines() if l.strip()]
+        entries = [json.loads(line) for line in log_path().read_text().splitlines() if line.strip()]
     except FileNotFoundError:
         entries = []
     entries = [e for e in entries if e.get("ts", "").startswith(day_text)]

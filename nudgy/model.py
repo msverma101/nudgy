@@ -36,7 +36,8 @@ def config_dir() -> Path:
 @dataclass
 class Item:
     id: str
-    source: str                    # note | claude | task | calendar | luma | gmail | linkedin | signal | whatsapp | potential
+    # note | claude | task | calendar | luma | gmail | linkedin | signal | whatsapp | potential
+    source: str
     title: str
     detail: str = ""
     due: str | None = None         # ISO datetime, or ISO date when all-day
@@ -45,7 +46,7 @@ class Item:
     tags: list[str] = field(default_factory=list)   # starred, important, message, invitation, job
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Item":
+    def from_dict(cls, data: dict) -> Item:
         """Builds an item from saved data, ignoring fields this version doesn't know (a newer Nudgy may
         have written them), so an older version never crashes on a newer file."""
         known = {f.name for f in fields(cls)}
@@ -204,8 +205,9 @@ _MONTH = "|".join(sorted(MONTH_NAMES, key=len, reverse=True))
 
 def _find_date(text: str, now: datetime):
     """'20 November', 'the 20th of Nov', 'November 20th', '20.11.', '20.11.2026', 'am 20. November'."""
-    patterns = (rf"\b(?:on |am |the )*(?P<d>\d{{1,2}})(?:st|nd|rd|th|\.)?\s+(?:of\s+)?(?P<mon>{_MONTH})\.?\b(?:\s+(?P<y>\d{{4}}))?",
-                rf"\b(?:on )?(?P<mon>{_MONTH})\.?\s+(?:the\s+)?(?P<d>\d{{1,2}})(?:st|nd|rd|th)?\b(?:,?\s+(?P<y>\d{{4}}))?",
+    year = r"(?:,?\s+(?P<y>\d{4}))?"
+    patterns = (rf"\b(?:on |am |the )*(?P<d>\d{{1,2}})(?:st|nd|rd|th|\.)?\s+(?:of\s+)?(?P<mon>{_MONTH})\.?\b{year}",
+                rf"\b(?:on )?(?P<mon>{_MONTH})\.?\s+(?:the\s+)?(?P<d>\d{{1,2}})(?:st|nd|rd|th)?\b{year}",
                 r"\b(?:on |am )?(?P<d>\d{1,2})\.(?P<m>\d{1,2})\.(?P<y>\d{4})?(?!\d)")
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
@@ -308,7 +310,8 @@ def parse_quick_add(text: str, now: datetime) -> tuple[str, str | None, str | No
     title = re.sub(r"\s*\b(at|on|by|um|am|bis)\s*$", "", title.strip(" ,.-"), flags=re.I).strip(" ,.-")
     if not cuts or not title:
         return text.strip().strip("! ") if not title else title, None, priority
-    if day_match and "day" in day_match.groupdict() and (day_match.group("day") or "").lower() == "tonight" and not clock:
+    said = (day_match.groupdict().get("day") or "").lower() if day_match else ""
+    if said == "tonight" and not clock:
         clock = (20, 0, None)
     if clock:
         hour, minute = clock[0], clock[1]
@@ -330,7 +333,7 @@ def friendly_time(item: Item, now: datetime) -> str:
         return ""
     due = _when(item.due, now)
     days = (due.date() - now.date()).days
-    day = "Today" if days == 0 else "Tomorrow" if days == 1 else "Yesterday" if days == -1 else due.strftime("%a %-d %b")
+    day = {0: "Today", 1: "Tomorrow", -1: "Yesterday"}.get(days) or due.strftime("%a %-d %b")
     if item.source in EVENT_SOURCES and not item.all_day and due <= now:
         return "Happening now"
     if item.all_day:

@@ -1,9 +1,7 @@
-import json
 import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest import mock
 
 from nudgy import luma, sources, google, chats

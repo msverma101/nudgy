@@ -73,7 +73,8 @@ class ListenTest(unittest.TestCase):
         import threading
         from unittest import mock
         with mock.patch.object(voice, "headset", lambda: None), \
-                mock.patch.object(voice, "recorder", lambda source=None: ["head", "-c", str(voice.CHUNK * 70), "/dev/zero"]):
+                mock.patch.object(voice, "recorder",
+                                  lambda source=None: ["head", "-c", str(voice.CHUNK * 70), "/dev/zero"]):
             self.assertEqual(voice.listen(threading.Event()), b"")
 
 
@@ -83,7 +84,7 @@ CARDS = """Card #60
 		off: Off (sinks: 0, sources: 0, priority: 0, available: yes)
 		headset-head-unit: Headset Head Unit (HSP/HFP) (sinks: 1, sources: 1, priority: 1, available: yes)
 		a2dp-sink: High Fidelity Playback (A2DP Sink, codec SBC) (sinks: 1, sources: 0, priority: 18, available: yes)
-		headset-head-unit-msbc: Headset Head Unit (HSP/HFP, codec mSBC) (sinks: 1, sources: 1, priority: 3, available: yes)
+		headset-head-unit-msbc: Headset Head Unit (HSP/HFP, codec mSBC) (priority: 3, available: yes)
 	Active Profile: a2dp-sink
 """
 
@@ -119,7 +120,8 @@ class ReplyTest(unittest.TestCase):
 
     def test_note_needs_text(self):
         self.assertEqual(voice.parse_reply('{"say": "ok", "action": "add_note", "note": ""}', ITEMS).action, "none")
-        reply = voice.parse_reply('{"say": "Noted", "action": "add_note", "note": "Call landlord tomorrow 10:00"}', ITEMS)
+        answer = '{"say": "Noted", "action": "add_note", "note": "Call landlord tomorrow 10:00"}'
+        reply = voice.parse_reply(answer, ITEMS)
         self.assertEqual(reply.note, "Call landlord tomorrow 10:00")
 
     def test_broken_json_still_answers(self):
@@ -152,7 +154,8 @@ class ListTest(unittest.TestCase):
     def test_quick_answers_read_the_real_order(self):
         top = voice.quick_answer("give me the top 3 tasks in the list", self.items, NOW)
         self.assertEqual(top.splitlines(), ["Your top 3.",
-                                            "First, Grant proposal: pitch research topic, ask about the next…, overdue since Saturday 7 November.",
+                                            "First, Grant proposal: pitch research topic, ask about the next…, "
+                                            "overdue since Saturday 7 November.",
                                             "Second, Send the pilot report, today.", "Third, Book flat viewing."])
         self.assertTrue(voice.quick_answer("what's next?", self.items, NOW).startswith("Next up: Grant proposal"))
         self.assertIn("You have 2 for today.", voice.quick_answer("what do I have today", self.items, NOW))
@@ -160,8 +163,8 @@ class ListTest(unittest.TestCase):
         self.assertIn("Your top 4.", voice.quick_answer("what are the most important things", self.items, NOW))
 
     def test_spoken_when(self):
-        when = lambda due, lang="en", source="note": voice.spoken_when(Item(id="x", source=source, title="x", due=due),
-                                                                       NOW, lang)
+        def when(due, lang="en"):
+            return voice.spoken_when(Item(id="x", source="note", title="x", due=due), NOW, lang)
         self.assertEqual(when("2026-11-13T16:00:00+00:00"), "today at 16:00")
         self.assertEqual(when("2026-11-14"), "tomorrow")
         self.assertEqual(when("2026-11-17"), "on Tuesday")
@@ -202,7 +205,8 @@ class AddTest(unittest.TestCase):
 
 
 class ActionsTest(unittest.TestCase):
-    items = [(Item(id="gmail:1", source="gmail", title="Interview invitation: Research Engineer", detail="Recruiting"), "Now"),
+    items = [(Item(id="gmail:1", source="gmail", title="Interview invitation: Research Engineer",
+                   detail="Recruiting"), "Now"),
              (Item(id="cal:1", source="calendar", title="Tenant advice session", detail="Town hall",
                    due="2026-11-13T16:00:00+00:00"), "Now"),
              (Item(id="task:1", source="task", title="Graph databases notes"), "Later"),
@@ -263,7 +267,8 @@ class ActionsTest(unittest.TestCase):
 
 class GoogleIntentTest(unittest.TestCase):
     def test_calendar_additions(self):
-        for text, note in (("add a meeting with Anna on Monday at 3pm to my calendar", "meeting with Anna on Monday at 3pm"),
+        for text, note in (("add a meeting with Anna on Monday at 3pm to my calendar",
+                            "meeting with Anna on Monday at 3pm"),
                            ("put dentist on the 20th of November in my calendar", "dentist on the 20th of November"),
                            ("schedule a call with Alex tomorrow at 11", "call with Alex tomorrow at 11"),
                            ("trag Zahnarzt am 20.11. um 9 in den Kalender ein", "Zahnarzt am 20.11. um 9")):

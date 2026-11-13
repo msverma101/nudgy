@@ -18,7 +18,7 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from .model import Item, data_dir
 

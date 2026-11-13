@@ -431,7 +431,7 @@ def draw(cr, size: float, mood: Mood, phase: float = 0.0, blink: bool = False, b
     cr.restore()
 
 
-def _timer_ring(cr, mood: "Mood", cx: float, cy: float) -> None:
+def _timer_ring(cr, mood: Mood, cx: float, cy: float) -> None:
     """A focus timer shows as a ring that empties around the pet."""
     if not mood.timer_end or not mood.timer_total:
         return
@@ -559,7 +559,7 @@ def _peek_items(mood: Mood) -> str:
     if not mood.top:
         return "All calm 🌿"
     lines = []
-    for title, when in list(zip(mood.top, mood.when or [""] * len(mood.top)))[:3]:
+    for title, when in list(zip(mood.top, mood.when or [""] * len(mood.top), strict=False))[:3]:
         short = title if len(title) <= 42 else title[:41] + "…"
         lines.append(f"•  {short}" + (f"  · {when}" if when else ""))
     if len(mood.top) > 3:
@@ -622,7 +622,7 @@ class DraftWindow(Gtk.Window):
 class Bubble(Gtk.Window):
     """A small speech bubble next to the pet, with up to two buttons."""
 
-    def __init__(self, pet: "Pet", text: str, buttons=(), seconds: float | None = 20, judgy=False):
+    def __init__(self, pet: Pet, text: str, buttons=(), seconds: float | None = 20, judgy=False):
         super().__init__(type=Gtk.WindowType.POPUP)
         self.pet = pet
         visual = self.get_screen().get_rgba_visual()
@@ -862,7 +862,7 @@ class Pet(Gtk.Window):
         if self.tray and before != (pressing, alarm, titles):
             self.tray.refresh()
         if self.watcher:
-            self.watcher.set_tasks(list(zip(titles, self.mood.when)), alarm)
+            self.watcher.set_tasks(list(zip(titles, self.mood.when, strict=False)), alarm)
         self.queue_draw()
 
     def cheer(self) -> None:
@@ -1014,7 +1014,8 @@ class Pet(Gtk.Window):
         return None
 
     def _command(self, reply) -> str | None:
-        commands = {"undo": self.list._undo, "sync": self.list.sync, "hide": lambda: GLib.timeout_add(2500, self.hide_pet),
+        commands = {"undo": self.list._undo, "sync": self.list.sync,
+                    "hide": lambda: GLib.timeout_add(2500, self.hide_pet),
                     "stop_timer": self.stop_timer}
         if reply.command in commands:
             commands[reply.command]()
@@ -1117,7 +1118,8 @@ class Pet(Gtk.Window):
                 self._later(f"Google didn't take it ({google.describe(error)}).")
                 return
             where = "Google Tasks" if kind == "task" else "your Google Calendar"
-            undo = lambda: threading.Thread(target=google.remove, args=(kind, made), daemon=True).start()
+            def undo() -> None:
+                threading.Thread(target=google.remove, args=(kind, made), daemon=True).start()
             self._later(f"Added “{title}” to {where}" + (f", {spoken}." if spoken else "."),
                         buttons=(("Undo", undo), ("OK", None)))
         spoken = voice.spoken_when(voice.Item(id="x", source="note", title="", due=due), moment) if due else ""

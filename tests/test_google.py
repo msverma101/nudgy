@@ -176,7 +176,8 @@ class WriteTest(unittest.TestCase):
         with patch:
             made = google.add_task("Call the dentist", datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc))
         self.assertEqual(made, "new-id")
-        self.assertEqual(sent, [("POST", google.TASKS, {"title": "Call the dentist", "due": "2026-11-20T00:00:00.000Z"})])
+        self.assertEqual(sent, [("POST", google.TASKS,
+                                 {"title": "Call the dentist", "due": "2026-11-20T00:00:00.000Z"})])
 
     def test_add_timed_and_all_day_events(self):
         sent, patch = self.capture()

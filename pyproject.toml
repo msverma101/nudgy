@@ -29,3 +29,18 @@ packages = ["nudgy"]
 
 [tool.setuptools.dynamic]
 version = { attr = "nudgy.__version__" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle, bugbear (likely bugs), and pyupgrade for 3.10 syntax
+select = ["F", "E", "W", "B", "UP"]
+ignore = ["E402"]   # gi.require_version must run before the GTK imports
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true      # gi, cairo and the speech libraries have no type stubs
+check_untyped_defs = true
+warn_unused_ignores = true

@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -95,7 +96,7 @@ class Reading(unittest.TestCase):
 
     def test_obsidian_link_when_folder_is_a_vault(self):
         config = self.folder / "obsidian.json"
-        config.write_text('{"vaults": {"a": {"path": "%s"}}}' % self.folder)
+        config.write_text(json.dumps({"vaults": {"a": {"path": str(self.folder)}}}))
         with mock.patch.object(cn.Path, "home", return_value=self.folder / "home"):
             (self.folder / "home/.config/obsidian").mkdir(parents=True)
             (self.folder / "home/.config/obsidian/obsidian.json").write_text(config.read_text())

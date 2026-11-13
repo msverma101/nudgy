@@ -116,7 +116,8 @@ class Feed(unittest.TestCase):
 
 class OptIn(unittest.TestCase):
     def test_off_until_config_exists(self):
-        import os, tempfile
+        import os
+        import tempfile
         from unittest import mock
         from datetime import datetime, timezone
         with tempfile.TemporaryDirectory() as folder, \

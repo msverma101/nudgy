@@ -49,7 +49,8 @@ DEFAULTS = {
 }
 
 # --- where -------------------------------------------------------------------------------------
-GERMANY = r"germany|deutschland|munich|münchen|muenchen|hamburg|frankfurt|cologne|köln|stuttgart|dresden|leipzig|potsdam|düsseldorf|heidelberg|karlsruhe|hannover|hanover|aachen|darmstadt|tübingen"
+GERMANY = (r"germany|deutschland|munich|münchen|muenchen|hamburg|frankfurt|cologne|köln|stuttgart|dresden|"
+           r"leipzig|potsdam|düsseldorf|heidelberg|karlsruhe|hannover|hanover|aachen|darmstadt|tübingen")
 EUROPE = (r"united kingdom|\buk\b|england|scotland|london|oxford|edinburgh|manchester|bristol|france|paris|lyon|"
           r"palaiseau|netherlands|amsterdam|rotterdam|delft|eindhoven|the hague|switzerland|schweiz|suisse|zurich|"
           r"zürich|geneva|lausanne|basel|st\.? gallen|leukerbad|austria|österreich|vienna|wien|italy|italia|milan|"
@@ -97,21 +98,28 @@ def place_from_geo(lat: float, lon: float) -> tuple[str, str] | None:
     return ("Germany" if in_germany else "Europe"), name
 
 # --- what --------------------------------------------------------------------------------------
-KIND = [(r"hackathon|makeathon|buildathon|\bhacks?\b|research sprint|\bsprint\b|\bchallenge\b|game jam|\bjam\b|build day", 25, "hackathon"),
+KIND = [(r"hackathon|makeathon|buildathon|\bhacks?\b|research sprint|\bsprint\b|\bchallenge\b|game jam|"
+         r"\bjam\b|build day", 25, "hackathon"),
         (r"neurips|icml|iclr|cvpr|conference|summit|symposium|\bdemo day\b", 15, "conference"),
         (r"career fair|job fair|hiring|recruit|talent|internship|fellowship|residency", 15, "jobs")]
-SAFETY = r"apart research|bluedot|ai safety|alignment|interpretab|mechanistic|\bevals?\b|red.?team|reward hack|oversight|ai control|misalign|sycophan"
+SAFETY = (r"apart research|bluedot|ai safety|alignment|interpretab|mechanistic|\bevals?\b|red.?team|"
+          r"reward hack|oversight|ai control|misalign|sycophan")
 ML = [r"machine learning|\bml\b", r"deep learning|neural|transformer", r"\bllms?\b|language model|foundation model",
       r"\bagents?\b|agentic", r"reinforcement|\brl\b", r"computer vision|\bvision\b", r"robot|physical ai",
       r"simulation|scientific|science|physics", r"research", r"\bgpu|compute|inference|training"]
-BIG_NAMES = (r"neurips|icml|iclr|anthropic|claude|deepmind|google|openai|mistral|hugging ?face|nvidia|\bmeta\b|microsoft|\baws\b|amazon|"
-             r"apple|elevenlabs|siemens|\bbmw\b|\bsap\b|bosch|merantix|y ?combinator|\byc\b|a16z|sequoia|lovable|cohere|"
+BIG_NAMES = (r"neurips|icml|iclr|anthropic|claude|deepmind|google|openai|mistral|hugging ?face|nvidia|\bmeta\b|"
+             r"microsoft|\baws\b|amazon|"
+             r"apple|elevenlabs|siemens|\bbmw\b|\bsap\b|bosch|merantix|y ?combinator|\byc\b|a16z|sequoia|"
+             r"lovable|cohere|"
              r"nebius|helsing|black forest labs|aleph alpha|deepl|n8n|langchain|perplexity|databricks|snowflake|"
              r"stripe|spotify|zalando|delivery hero|n26|celonis|isomorphic|wayve|synthesia|poolside|h company|"
-             r"cursor|replit|vercel|github|\bibm\b|\bintel\b|\bamd\b|qualcomm|samsung|airbus|ellis|max planck|fraunhofer")
-NOISE = r"improv|karaoke|run club|\brun\b|running|yoga|book club|party|rave|dinner|brunch|coffee|drinks|social|aperitivo|games night|wine|beer|choir"
+             r"cursor|replit|vercel|github|\bibm\b|\bintel\b|\bamd\b|qualcomm|samsung|airbus|ellis|"
+             r"max planck|fraunhofer")
+NOISE = (r"improv|karaoke|run club|\brun\b|running|yoga|book club|party|rave|dinner|brunch|coffee|drinks|"
+         r"social|aperitivo|games night|wine|beer|choir")
 BEGINNER = r"beginner|intro(duction)? to|non.?technical|for founders|no.?code|for marketers|for pms?\b"
-MONEY = re.compile(r"(?:[€$£]|chf|eur|usd|gbp)\s?(\d[\d,.]*)\s?(k|m)?\b|(\d[\d,.]*)\s?(k|m)?\s?(?:€|\$|£|chf|eur|euro|usd|gbp)", re.I)
+MONEY = re.compile(r"(?:[€$£]|chf|eur|usd|gbp)\s?(\d[\d,.]*)\s?(k|m)?\b|"
+                   r"(\d[\d,.]*)\s?(k|m)?\s?(?:€|\$|£|chf|eur|euro|usd|gbp)", re.I)
 
 
 _boosts: dict[str, int] = dict(DEFAULTS["organiser_boost"])     # refreshed from the config on each collect

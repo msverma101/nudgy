@@ -4,8 +4,7 @@ import os
 import tempfile
 import unittest
 import urllib.error
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 from unittest import mock
 
 from nudgy import keep, sources, google, chats, luma

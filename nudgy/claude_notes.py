@@ -29,7 +29,8 @@ DATE = re.compile(r"\b(\d{1,2})(?:\s*[–-]\s*\d{1,2})?\s+(jan|feb|mar|apr|may|j
                   r"(?:\s+(20\d\d))?\b", re.I)
 # Dates that describe the past, not a deadline: "added 6 Nov", "As of 11 Nov", "on 7 Nov", "Checked 6 Nov".
 PAST_CONTEXT = re.compile(r"\b(added|as of|since|checked|on|done|works,|pushed|fixed|failed|tried|sent|set|"
-                          r"updated|built|tested|closed|was|last|linked|signed in|found|noted|confirmed|asked|reported|seen)\s*$", re.I)
+                          r"updated|built|tested|closed|was|last|linked|signed in|found|noted|confirmed|"
+                          r"asked|reported|seen)\s*$", re.I)
 URGENT = re.compile(r"\burgent\b", re.I)
 RESUME = re.compile(r"`cd (/[^`&]+?) && claude --resume ([0-9a-f-]{36})`")
 LINK = re.compile(r"https://[^\s)`>\]]+")
@@ -108,13 +109,14 @@ def read(now: datetime, folder: Path = NOTES) -> list[Item]:
             if section.lower() == HANDOFFS:
                 resume = RESUME.search(text)
                 project = re.search(r"\*\*(.+?)\*\*", text)
-                status = next((_plain(l.split("**Status:**", 1)[1]) for l in lines[number + 1:number + 4]
-                               if "**Status:**" in l), "")
+                status = next((_plain(line.split("**Status:**", 1)[1]) for line in lines[number + 1:number + 4]
+                               if "**Status:**" in line), "")
                 name = _plain(project.group(1)) if project else "session"
                 when, _, what = name.partition(" · ")
                 title = f"Resume: {what} ({when.rsplit(' ', 1)[0]})" if what else f"Resume: {name}"
                 items.append(Item(id=item_id, source="claude", title=title,
-                                  detail=status, url=f"resume:{resume.group(1)}|{resume.group(2)}" if resume else file_url,
+                                  detail=status,
+                                  url=f"resume:{resume.group(1)}|{resume.group(2)}" if resume else file_url,
                                   tags=["handoff"]))
                 continue
             plain = _plain(text)
