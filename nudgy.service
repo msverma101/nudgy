@@ -1,0 +1,12 @@
+[Unit]
+Description=Nudgy always-on-top task list
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/nudgy
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

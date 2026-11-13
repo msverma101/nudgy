@@ -1,0 +1,17 @@
+{
+ "home": "",
+ "luma_calendars": {},
+ "organiser_boost": {
+  "watchlist": 15
+ },
+ "luma_cities": [
+  "london",
+  "paris",
+  "amsterdam"
+ ],
+ "meetup_groups": [],
+ "rss": [
+  "https://dev.events/rss.xml"
+ ],
+ "watchlist": []
+}
