@@ -14,6 +14,7 @@ the sources to fit you. They are fetched at most every 6 hours and cached.
 """
 from __future__ import annotations
 
+import logging
 import json
 import re
 import urllib.request
@@ -25,6 +26,8 @@ from email.utils import parsedate_to_datetime
 
 from . import luma
 from .model import Item, config_dir, data_dir
+
+log = logging.getLogger(__name__)
 
 AGENT = "Nudgy event finder (personal, read-only)"
 REFRESH = timedelta(hours=6)
@@ -354,6 +357,7 @@ def collect(now: datetime) -> tuple[list[Item], dict[str, str]]:
                 return from_rss(text, now)
             return from_ics(text, now, kind[4:])
         except Exception as error:          # one broken source must not stop the others
+            log.warning("event source %s failed: %s: %s", name, type(error).__name__, str(error)[:120])
             errors[name] = str(error)[:120]
             return []
 
@@ -399,9 +403,11 @@ def fetch(now: datetime, force: bool = False, applied=None) -> tuple[list[Item],
         pass
     names: list[str] = []
     if applied:
+        from .google import NETWORK_ERRORS, describe
         try:
             names = applied()
-        except Exception:
+        except NETWORK_ERRORS as error:
+            log.info("Luma applications from Gmail skipped: %s", describe(error))
             names = []                       # Gmail not connected: only the calendar check is used
     items, errors = collect(now)
     if not items and errors:

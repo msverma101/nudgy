@@ -13,6 +13,7 @@ Settings live in ~/.config/nudgy/focus.json; any key left out uses the default b
 """
 from __future__ import annotations
 
+import logging
 import hashlib
 import json
 import os
@@ -29,6 +30,8 @@ from pathlib import Path
 from typing import Callable
 
 from .model import config_dir, data_dir, quiet_claude_env
+
+log = logging.getLogger(__name__)
 
 DEFAULTS = {
     "enabled": False,                 # sends window titles to a model; turn on in the app or focus.json
@@ -426,6 +429,7 @@ class Watcher:
         try:
             verdict = self.judge_chain.decide(app, title, tasks)
         except Exception as error:      # a judge failing must never stop the pet
+            log.warning("focus judge failed: %s: %s", type(error).__name__, error)
             verdict = Verdict("unsure", 0.0, "", f"error: {error}", "none")
         self.GLib.idle_add(self._react, app, title, tasks, verdict)
 

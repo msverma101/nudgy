@@ -7,9 +7,12 @@ Reads one JSON request per line on stdin and answers with one JSON line on stdou
   {"cmd": "warm", "voice": PATH.onnx, "model": "base"}  ->  {"ready": true}   (loads models ahead of time)
 Models load on first use and stay loaded while the worker runs. Everything is local.
 """
+import logging
 import json
 import sys
 import wave
+
+log = logging.getLogger(__name__)
 
 whisper = None
 voices = {}
@@ -59,11 +62,13 @@ def speak(request: dict) -> dict:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s speech worker: %(message)s")
     for line in sys.stdin:
         try:
             request = json.loads(line)
             answer = {"transcribe": transcribe, "speak": speak, "warm": warm}[request["cmd"]](request)
         except Exception as error:                     # report and keep serving
+            log.warning("speech worker: %s: %s", type(error).__name__, error)
             answer = {"error": f"{type(error).__name__}: {error}"[:300]}
         sys.stdout.write(json.dumps(answer) + "\n")
         sys.stdout.flush()

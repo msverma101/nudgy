@@ -1,6 +1,7 @@
 """The always-on-top sticky window (GTK 3, X11)."""
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 import threading
@@ -21,6 +22,8 @@ from . import chats, claude_notes, digest, google, keep, luma, phone, sources  #
 from .changes import Changes  # noqa: E402
 from .model import (LATER, LEVELS, NOW, SOON, Item, Store, bucket, friendly_time, place_between,  # noqa: E402
                     important, place_key, ranked, search, ticked_claude)
+
+log = logging.getLogger(__name__)
 
 CHECK_SECONDS = 60      # how often sources are asked whether anything new arrived
 DIGEST_SECONDS = 3600   # how often Claude turns new jotted notes into steps
@@ -1273,6 +1276,7 @@ class Window(Gtk.ApplicationWindow):
                 work()
                 error = None
             except Exception as problem:     # shown to the user, never crashes the window
+                log.warning("background task failed: %s: %s", type(problem).__name__, problem)
                 error = problem
             GLib.idle_add(lambda: (done(error), False)[1])
         threading.Thread(target=worker, daemon=True).start()
@@ -1329,7 +1333,8 @@ class Window(Gtk.ApplicationWindow):
             png = folder / "qr.png"
             try:
                 chats.make_qr(text, png)
-            except Exception:
+            except (OSError, subprocess.SubprocessError) as error:
+                log.warning("could not draw the linking QR code: %s", error)
                 return
             GLib.idle_add(lambda: (image.set_from_file(str(png)), False)[1])
         return dialog, show, folder

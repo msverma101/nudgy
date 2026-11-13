@@ -17,6 +17,7 @@ Wi-Fi icon; Super+T (or `nudgy toggle`) brings it back.
 """
 from __future__ import annotations
 
+import logging
 import math
 import random
 import subprocess
@@ -33,6 +34,8 @@ gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from .model import data_dir  # noqa: E402
+
+log = logging.getLogger(__name__)
 
 SIZE = 84                 # window size; the body is drawn in an 84-unit square
 LONG_PRESS_MS = 500       # hold the pet this long to talk to it
@@ -1076,8 +1079,8 @@ class Pet(Gtk.Window):
         if item.source == "gmail":
             try:
                 sender, subject, body = google.message_text(item.id)
-            except Exception:                                   # offline or signed out: draft from the subject
-                pass
+            except google.NETWORK_ERRORS as error:              # offline or signed out: draft from the subject
+                log.info("email text unavailable for the draft: %s", google.describe(error))
         try:
             draft = voice.draft_reply(sender, subject, body, wish)
         except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
@@ -1109,7 +1112,8 @@ class Pet(Gtk.Window):
                     all_day = "T" not in due
                     start = when if not all_day else when.replace(tzinfo=moment.tzinfo)
                     made = google.add_event(title, start, reply.minutes or 60, all_day)
-            except Exception as error:
+            except google.NETWORK_ERRORS as error:
+                log.warning("adding to Google failed: %s", google.describe(error))
                 self._later(f"Google didn't take it ({google.describe(error)}).")
                 return
             where = "Google Tasks" if kind == "task" else "your Google Calendar"
@@ -1126,7 +1130,8 @@ class Pet(Gtk.Window):
         from . import google
         try:
             google.authorize_write()
-        except Exception as error:
+        except google.NETWORK_ERRORS as error:
+            log.warning("Google write sign-in failed: %s", google.describe(error))
             self._later(f"Sign-in didn't finish ({google.describe(error)}).")
             return
         self._later("Thanks! Ask me again and I'll add it.")

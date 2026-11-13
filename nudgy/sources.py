@@ -1,10 +1,13 @@
 """Runs every source once. Each source fails on its own without stopping the others."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 
 from . import chats, claude_notes, discover, google, keep, luma
 from .model import Item
+
+log = logging.getLogger(__name__)
 
 
 GROUPS = ("google", "signal", "whatsapp", "keep", "claude", "events")
@@ -24,7 +27,8 @@ def sync_groups(now: datetime, groups: set[str], calendar: list[Item] | None = N
             continue
         try:
             result = job(now)
-        except Exception as error:
+        except Exception as error:          # one broken source must not stop the others
+            log.warning("%s failed: %s", name, google.describe(error))
             errors[name] = str(error) if isinstance(error, chats.NotReady) else google.describe(error)
             continue
         if result is not None:              # None: not linked, so nothing to report
@@ -36,12 +40,14 @@ def sync_groups(now: datetime, groups: set[str], calendar: list[Item] | None = N
                 items["keep"] = notes
         except keep.KeepRefused as error:
             errors["keep"] = str(error)
-        except Exception as error:
+        except Exception as error:          # one broken source must not stop the others
+            log.warning("keep failed: %s", google.describe(error))
             errors["keep"] = google.describe(error)
     if "claude" in groups:
         try:
             items["claude"] = claude_notes.read(now)
-        except Exception as error:
+        except Exception as error:          # one broken source must not stop the others
+            log.warning("claude notes failed: %s", google.describe(error))
             errors["claude"] = google.describe(error)
     if "events" not in groups:
         return items, errors
@@ -53,14 +59,16 @@ def sync_groups(now: datetime, groups: set[str], calendar: list[Item] | None = N
         events = None if everything is None else [e for e in everything if e.due[:10] <= horizon.date().isoformat()]
         if events is not None:
             items["luma"] = luma.drop_duplicates(events, known_calendar)
-    except Exception as error:
+    except Exception as error:              # one broken source must not stop the others
+        log.warning("luma failed: %s", google.describe(error))
         errors["luma"] = str(error) if isinstance(error, ValueError) else google.describe(error)
     try:
         # Public events across Europe that fit you, minus the ones you are already going to.
         mine = (everything or []) + known_calendar
         found, applied = discover.fetch(now, applied=google.luma_applications)
         items["potential"] = discover.drop_known(found, mine, applied)
-    except Exception as error:
+    except Exception as error:              # one broken source must not stop the others
+        log.warning("event finder failed: %s", google.describe(error))
         errors["potential"] = google.describe(error)
     return items, errors
 

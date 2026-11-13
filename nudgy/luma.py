@@ -89,10 +89,7 @@ def _moment(field: tuple[dict, str] | None, local) -> datetime | date | None:
     stamp = datetime.strptime(value.rstrip("Z")[:15], "%Y%m%dT%H%M%S")
     if value.endswith("Z"):
         return stamp.replace(tzinfo=timezone.utc).astimezone(local)
-    try:
-        zone = _zone(params["TZID"].strip('"'), local) if "TZID" in params else local
-    except Exception:
-        zone = local
+    zone = _zone(params["TZID"].strip('"'), local) if "TZID" in params else local
     return stamp.replace(tzinfo=zone).astimezone(local)
 
 

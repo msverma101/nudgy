@@ -5,6 +5,7 @@ LinkedIn has no personal inbox API, so its notification emails are read from Gma
 """
 from __future__ import annotations
 
+import logging
 import base64
 import hashlib
 import http.server
@@ -22,6 +23,8 @@ from email.utils import parseaddr
 from pathlib import Path
 
 from .model import Item, config_dir
+
+log = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly",
           "https://www.googleapis.com/auth/tasks.readonly",
@@ -47,6 +50,11 @@ SKIP_CALENDAR_KINDS = ("#holiday@group.v.calendar.google.com", "#contacts@group.
 
 class NeedsSignIn(Exception):
     """The user has to run `nudgy auth`."""
+
+
+# What a Google call can raise when offline, signed out or answered with something unexpected.
+# urllib's URLError and HTTPError are OSErrors; broken JSON is a ValueError.
+NETWORK_ERRORS = (OSError, ValueError, KeyError, NeedsSignIn)
 
 
 def client_path() -> Path:
@@ -360,5 +368,6 @@ def sync_all(now: datetime) -> tuple[dict[str, list[Item]], dict[str, str]]:
             if result is not None:          # None: switched off
                 items[name] = result
         except Exception as error:      # one broken source must not stop the others
+            log.warning("%s failed: %s", name, describe(error))
             errors[name] = describe(error)
     return items, errors

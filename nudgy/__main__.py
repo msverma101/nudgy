@@ -117,6 +117,10 @@ def main() -> int:
         print(f"nudgy {__version__}")
         return 0
     private_folders()
+    import logging
+    # Problems go to stderr, which the service's journal keeps: journalctl --user -u nudgy
+    logging.basicConfig(level=logging.INFO if command == "run" else logging.WARNING,
+                        format="%(levelname)s %(name)s: %(message)s")
     moment = datetime.now().astimezone()
     if command == "run":
         from .app import run

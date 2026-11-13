@@ -10,6 +10,7 @@ catches what the checks can't see (an event moving into the next 7 days, Luma, p
 """
 from __future__ import annotations
 
+import logging
 import hashlib
 import json
 import time
@@ -20,6 +21,8 @@ from pathlib import Path
 from . import claude_notes, google
 from .sources import GROUPS as FULL_GROUPS          # one list of sync groups, kept in sources.py
 from .model import data_dir
+
+log = logging.getLogger(__name__)
 
 FULL_EVERY = 60 * 60
 SIGNAL_EVERY = 2 * 60
@@ -102,7 +105,8 @@ class Changes:
         if google.token_path().exists():
             try:
                 changed, self.history = google_changed(self.last_check, self.history)
-            except Exception:
+            except google.NETWORK_ERRORS as error:
+                log.info("Gmail change check skipped: %s", google.describe(error))
                 changed = False            # offline or signed out: the hourly fetch reports it
             if changed:
                 groups.add("google")

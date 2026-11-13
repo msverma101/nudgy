@@ -93,7 +93,9 @@ class Fetching(unittest.TestCase):
                 mock.patch.object(google, "fetch_tasks", lambda: []), \
                 mock.patch.object(google, "fetch_gmail", lambda: []), \
                 mock.patch.object(google, "fetch_linkedin", lambda: []):
-            items, errors = google.sync_all(NOW)
+            with self.assertLogs("nudgy.google", "WARNING") as logged:
+                items, errors = google.sync_all(NOW)
+        self.assertIn("calendar failed: Offline", logged.output[0])
         self.assertEqual(errors, {"calendar": "Offline"})
         self.assertEqual(set(items), {"task", "gmail", "linkedin"})
 
