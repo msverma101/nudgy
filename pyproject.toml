@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nudgy"
+dynamic = ["version"]
+description = "A tiny desktop pet that keeps what needs you in one always-on-top list"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+# No pip dependencies: GTK, cairo and the tray icon come from the system (python3-gi, python3-gi-cairo,
+# gir1.2-gtk-3.0), so install with access to system packages: pipx install --system-site-packages .
+dependencies = []
+classifiers = [
+    "Environment :: X11 Applications :: GTK",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+]
+
+[project.scripts]
+nudgy = "nudgy.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/msverma101/nudgy"
+
+[tool.setuptools]
+packages = ["nudgy"]
+
+[tool.setuptools.dynamic]
+version = { attr = "nudgy.__version__" }

@@ -111,8 +111,12 @@ def voice_command(rest: list[str], moment) -> int:
 
 
 def main() -> int:
-    private_folders()
     command = sys.argv[1] if len(sys.argv) > 1 else "run"
+    if command in ("--version", "version"):
+        from . import __version__
+        print(f"nudgy {__version__}")
+        return 0
+    private_folders()
     moment = datetime.now().astimezone()
     if command == "run":
         from .app import run

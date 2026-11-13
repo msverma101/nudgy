@@ -24,6 +24,10 @@ for unit in nudgy.service nudgy-whatsapp.service; do
     rm -f "$HOME/.config/systemd/user/$unit"
 done
 systemctl --user daemon-reload 2>/dev/null || true
+if command -v pipx >/dev/null && pipx list --short 2>/dev/null | grep -q '^nudgy '; then
+    pipx uninstall nudgy >/dev/null
+fi
+rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/nudgy/app"     # the private install, if pipx wasn't used
 rm -f "$HOME/.local/bin/nudgy"
 
 media=org.gnome.settings-daemon.plugins.media-keys

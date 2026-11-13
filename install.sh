@@ -6,16 +6,18 @@
 #   ./install.sh --with-whatsapp  also install the unofficial WhatsApp bridge (needs Node.js 20+)
 #   ./install.sh --no-shortcut    don't add the Super+T and Super+Shift+T shortcuts
 #   ./install.sh --no-start       install, but don't start or enable the service
+#   ./install.sh --editable       for development: changes in this folder apply without reinstalling
 #
 # Remove it again with ./uninstall.sh.
 set -eu
 
-whatsapp=no shortcut=yes start=yes
+whatsapp=no shortcut=yes start=yes editable=no
 for arg in "$@"; do
     case "$arg" in
         --with-whatsapp) whatsapp=yes ;;
         --no-shortcut) shortcut=no ;;
         --no-start) start=no ;;
+        --editable) editable=yes ;;
         -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown option: $arg (see --help)" >&2; exit 2 ;;
     esac
@@ -76,13 +78,27 @@ chmod 700 "$config" "$data"
 
 # --- command and services ----------------------------------------------------------------------
 mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user"
-cat > "$HOME/.local/bin/nudgy" <<EOF
-#!/bin/sh
-# Runs Nudgy from $here. Moving that folder breaks this; run install.sh again from the new place.
-export PYTHONPATH="$here"
-exec /usr/bin/python3 -m nudgy "\$@"
-EOF
-chmod 755 "$HOME/.local/bin/nudgy"
+bin="$HOME/.local/bin/nudgy"
+# Older installs wrote a small wrapper script here; it is replaced by the installed package.
+if [ -f "$bin" ] && [ ! -L "$bin" ] && grep -q PYTHONPATH "$bin" 2>/dev/null; then rm -f "$bin"; fi
+editable_flag=""
+[ "$editable" = yes ] && editable_flag="--editable"
+# The package has no pip dependencies: GTK and cairo come from the system, hence system site packages.
+if command -v pipx >/dev/null; then
+    echo "Installing the nudgy package with pipx..."
+    pipx install --force --system-site-packages $editable_flag "$here" >/dev/null
+elif /usr/bin/python3 -c 'import ensurepip' 2>/dev/null; then
+    echo "Installing the nudgy package into $data/app..."
+    rm -rf "$data/app"
+    /usr/bin/python3 -m venv --system-site-packages "$data/app"
+    "$data/app/bin/pip" install -q --disable-pip-version-check $editable_flag "$here"
+    ln -sf "$data/app/bin/nudgy" "$bin"
+else
+    # No pipx and no venv module: run straight from this folder, as before.
+    printf '#!/bin/sh\n# Runs Nudgy from %s. Moving that folder breaks this; run install.sh again.\n# (Install pipx or python3-venv and run install.sh again for a package install.)\nexport PYTHONPATH="%s"\nexec /usr/bin/python3 -m nudgy "$@"\n' "$here" "$here" > "$bin"
+    chmod 755 "$bin"
+fi
+"$bin" --version >/dev/null || fail "the nudgy command doesn't run; see the messages above."
 install -m 644 "$here/nudgy.service" "$HOME/.config/systemd/user/nudgy.service"
 install -m 644 "$here/nudgy-whatsapp.service" "$HOME/.config/systemd/user/nudgy-whatsapp.service"
 
