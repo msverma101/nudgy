@@ -20,3 +20,30 @@ jobs:
           node-version: 22
       - working-directory: bridges/whatsapp
         run: npm ci --omit=dev --ignore-scripts --no-fund --no-audit && npm audit --omit=dev && node --test test.mjs
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+      # Exact versions, so a new release of a checker can't fail the build on its own.
+      - run: uvx ruff@0.17.5 check nudgy tests tools
+      - run: uvx mypy@2.4.1 nudgy
+
+  android:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
