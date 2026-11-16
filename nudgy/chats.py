@@ -1,21 +1,15 @@
-"""Signal and WhatsApp, read-only. Neither has an official API for personal accounts.
+"""Signal, read-only. Signal has no official API for personal accounts.
 
-Signal: signal-cli is linked to your phone as an extra device, like Signal Desktop. Each sync asks it
-for new messages. Messages leave the list when you read them on another device or reply.
-
-WhatsApp: a small Node bridge (bridges/whatsapp) stays connected like WhatsApp Web and keeps
-whatsapp-chats.json up to date. This is unofficial and against WhatsApp's terms; it only reads.
-
-Unlinked services are skipped quietly: they are not errors.
+signal-cli is linked to your phone as an extra device, like Signal Desktop. Each sync asks it for new
+messages. Messages leave the list when you read them on another device or reply. If Signal isn't
+linked it is skipped quietly: that is not an error.
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import shutil
 import subprocess
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from collections.abc import Callable
@@ -23,7 +17,6 @@ from collections.abc import Callable
 from .model import Item, data_dir
 
 KEEP_DAYS = 14
-BRIDGE = Path(__file__).resolve().parent.parent / "bridges" / "whatsapp"
 SIGNAL_TIMEOUT = 90
 
 
@@ -53,45 +46,12 @@ def _clip(text: str, limit: int = 140) -> str:
     return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
-def node_path() -> str | None:
-    """The systemd service has no nvm in PATH, so look in nvm's folder too."""
-    found = shutil.which("node")
-    if found:
-        return found
-    stable = [p for p in glob.glob(str(Path.home() / ".nvm/versions/node/*/bin/node"))
-              if "-" not in Path(p).parts[-3]]          # skip alpha/nightly builds
-    stable.sort(key=lambda p: [int(x) for x in Path(p).parts[-3].lstrip("v").split(".")])
-    return stable[-1] if stable else None
-
-
-def bridge_installed() -> bool:
-    return (BRIDGE / "node_modules" / "baileys").is_dir()
-
-
-def bridge_command(*args: str) -> list[str]:
-    node = node_path()
-    if not node:
-        raise NotReady("Node.js not found")
-    if not bridge_installed():
-        raise NotReady(f"WhatsApp bridge not installed. Run: cd {BRIDGE} && npm install")
-    return [node, str(BRIDGE / "wa.mjs"), *args]
-
-
-def bridge_env() -> dict:
-    return {**os.environ, "NUDGY_DATA": str(data_dir())}
-
-
-def bridge_log():
-    path = data_dir() / "whatsapp-bridge.log"
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if path.exists() and path.stat().st_size > 1_000_000:
-        path.unlink()
-    return open(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600), "a")
-
-
 def make_qr(text: str, png: Path) -> None:
-    subprocess.run(bridge_command("qr", text, str(png)), env=bridge_env(), check=True, timeout=30,
-                   capture_output=True)
+    """Draws a QR code with qrencode (a small system tool: sudo apt install qrencode)."""
+    tool = shutil.which("qrencode")
+    if not tool:
+        raise FileNotFoundError("qrencode is not installed")
+    subprocess.run([tool, "-o", str(png), "-s", "6", "-m", "2", text], check=True, timeout=30, capture_output=True)
 
 
 # ---- Signal ------------------------------------------------------------------------------------
@@ -206,74 +166,3 @@ def fetch_signal(now: datetime) -> list[Item] | None:
         raise NotReady(_clip(tail, 100))
     _write_json(path, apply_signal(inbox, lines, now))   # receive consumes messages: save them first
     return signal_items(inbox)
-
-
-# ---- WhatsApp ----------------------------------------------------------------------------------
-def whatsapp_linked() -> bool:
-    creds = _read_json(data_dir() / "whatsapp-auth" / "creds.json", {})
-    return bool(creds.get("me"))
-
-
-def whatsapp_items(db: dict, now: datetime) -> list[Item]:
-    items = []
-    names = db.get("names", {})
-    for jid, chat in db.get("chats", {}).items():
-        if chat.get("unread", 0) <= 0 or chat.get("archived"):
-            continue
-        if chat.get("muted") and (chat["muted"] < 0 or chat["muted"] > now.timestamp()):
-            continue                                   # muted chats stay quiet here too
-        fallback = "+" + jid.split("@")[0] if jid.endswith("@s.whatsapp.net") else (
-            "WhatsApp group" if chat.get("group") else "WhatsApp")
-        name = names.get(jid) or fallback
-        last = chat.get("last") or "New message"
-        text = f"{chat['from']}: {last}" if chat.get("group") and chat.get("from") else last
-        more = f" · {chat['unread']} new" if chat["unread"] > 1 else ""
-        number = jid.split("@")[0] if jid.endswith("@s.whatsapp.net") else ""
-        url = f"https://web.whatsapp.com/send?phone={number}" if number.isdigit() else "https://web.whatsapp.com/"
-        items.append(Item(id=f"whatsapp:{jid}", source="whatsapp", title=_clip(text), detail=name + more, url=url,
-                          tags=["group" if chat.get("group") else "direct"]))
-    return items
-
-
-def fetch_whatsapp(now: datetime) -> list[Item] | None:
-    if not whatsapp_linked():
-        return None
-    db = _read_json(data_dir() / "whatsapp-chats.json", None)
-    if db is None or time.time() - db.get("updated", 0) > 5 * 60:
-        raise NotReady("bridge not running (systemctl --user status nudgy-whatsapp)")
-    return whatsapp_items(db, now)
-
-
-def whatsapp_service(action: str) -> None:
-    subprocess.run(["systemctl", "--user", action, *(["--now"] if action in ("enable", "disable") else []),
-                    "nudgy-whatsapp.service"], check=False, capture_output=True)
-
-
-def link_whatsapp(on_qr: Callable[[str], None], on_start: Callable | None = None) -> None:
-    """Shows each QR code WhatsApp issues (they rotate about every 20 s) until the phone scans one."""
-    whatsapp_service("stop")
-    log = bridge_log()
-    process = subprocess.Popen(bridge_command("link"), stdout=subprocess.PIPE, stderr=log,
-                               text=True, env=bridge_env())
-    log.close()
-    if on_start:
-        on_start(process)
-    linked = False
-    assert process.stdout is not None            # opened with stdout=PIPE
-    for raw in process.stdout:
-        try:
-            event = json.loads(raw)
-        except ValueError:
-            continue
-        if "qr" in event:
-            on_qr(event["qr"])
-        linked = linked or bool(event.get("linked"))
-    process.wait()
-    if not linked:
-        raise NotReady(f"WhatsApp linking did not finish. Details: {data_dir() / 'whatsapp-bridge.log'}")
-    whatsapp_service("enable")
-
-
-def unlink_whatsapp() -> None:
-    whatsapp_service("disable")
-    subprocess.run(bridge_command("logout"), env=bridge_env(), timeout=60, capture_output=True)

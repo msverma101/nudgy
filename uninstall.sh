@@ -2,10 +2,10 @@
 # Removes Nudgy's command, services and shortcut.
 #
 #   ./uninstall.sh          keeps your settings, notes and sign-ins
-#   ./uninstall.sh --purge  also deletes them: Google token, Signal/WhatsApp links, cached mail and chats
+#   ./uninstall.sh --purge  also deletes them: Google token, Signal link, cached mail and chats
 #
 # Linked devices stay listed on your phone until you remove "Nudgy" there
-# (Signal and WhatsApp > Settings > Linked devices). Google access: https://myaccount.google.com/permissions
+# (Signal > Settings > Linked devices). Google access: https://myaccount.google.com/permissions
 set -eu
 
 purge=no
@@ -16,9 +16,6 @@ case "${1:-}" in
     *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
 esac
 
-if [ "$purge" = yes ] && [ -x "$HOME/.local/bin/nudgy" ]; then
-    "$HOME/.local/bin/nudgy" unlink whatsapp 2>/dev/null || true     # logs the bridge out on WhatsApp's side
-fi
 for unit in nudgy.service nudgy-whatsapp.service; do
     systemctl --user disable --now "$unit" 2>/dev/null || true
     rm -f "$HOME/.config/systemd/user/$unit"

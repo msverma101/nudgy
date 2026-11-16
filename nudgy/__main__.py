@@ -11,8 +11,6 @@ nudgy focus test TITLE [APP]   run the focus judges on a window title and show w
 nudgy focus on|off     turn the pet's focus check on or off
 nudgy auth             sign in to Google (read-only)
 nudgy link signal      link Signal: scan the QR code with Signal > Settings > Linked devices
-nudgy link whatsapp    link WhatsApp: scan with WhatsApp > Linked devices (unofficial, read-only)
-nudgy unlink whatsapp  unlink WhatsApp and stop its bridge
 nudgy luma LINK        connect Luma with your personal calendar link (Luma > Settings > Calendar Syncing)
 nudgy luma off         disconnect Luma
 nudgy keep             connect Google Keep through the official API (Workspace accounts)
@@ -180,17 +178,6 @@ def main() -> int:
             return 1
         # In a terminal signal-cli prints the QR code itself.
         return subprocess.call([cli, "link", "-n", "Nudgy"])
-    if command == "link" and sys.argv[2:3] == ["whatsapp"]:
-        print("Scan with WhatsApp > Settings > Linked devices > Link a device.")
-        def show(qr: str) -> None:
-            subprocess.run(chats.bridge_command("qr-terminal", qr), env=chats.bridge_env())
-        chats.link_whatsapp(show)
-        print("Linked. The bridge now runs in the background.")
-        return 0
-    if command == "unlink" and sys.argv[2:3] == ["whatsapp"]:
-        chats.unlink_whatsapp()
-        print("Unlinked.")
-        return 0
     if command == "luma" and len(sys.argv) == 3:
         if sys.argv[2] == "off":
             luma.forget_feed()
@@ -213,8 +200,6 @@ def main() -> int:
             return 1
         print(f"Google Keep connected: {count} notes readable.")
         return 0
-    if command == "whatsapp-bridge":
-        os.execve(chats.bridge_command("run")[0], chats.bridge_command("run"), chats.bridge_env())
     if command == "phone":
         from . import phone
         rest = sys.argv[2:]

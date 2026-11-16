@@ -1,9 +1,8 @@
 #!/bin/sh
 # Installs Nudgy for the current user: the `nudgy` command, a systemd user service that starts it
-# at login, and (optionally) Super+T / Super+Shift+T shortcuts and the WhatsApp bridge. Never uses sudo.
+# at login, and (optionally) Super+T / Super+Shift+T shortcuts. Never uses sudo.
 #
 #   ./install.sh                  install and start
-#   ./install.sh --with-whatsapp  also install the unofficial WhatsApp bridge (needs Node.js 20+)
 #   ./install.sh --no-shortcut    don't add the Super+T and Super+Shift+T shortcuts
 #   ./install.sh --no-start       install, but don't start or enable the service
 #   ./install.sh --editable       for development: changes in this folder apply without reinstalling
@@ -11,10 +10,10 @@
 # Remove it again with ./uninstall.sh.
 set -eu
 
-whatsapp=no shortcut=yes start=yes editable=no
+shortcut=yes start=yes editable=no
 for arg in "$@"; do
     case "$arg" in
-        --with-whatsapp) whatsapp=yes ;;
+        --with-whatsapp) echo "WhatsApp support was removed from Nudgy; installing without it." ;;
         --no-shortcut) shortcut=no ;;
         --no-start) start=no ;;
         --editable) editable=yes ;;
@@ -42,11 +41,6 @@ case "$here" in *[\"\$\`\\]*) fail "move the folder to a path without quotes, \$
 command -v systemctl >/dev/null || fail "systemd is needed to start Nudgy at login."
 if ! /usr/bin/python3 -c 'import gi; gi.require_version("AyatanaAppIndicator3", "0.1")' 2>/dev/null; then
     echo "Note: no top-bar icon support. For it: sudo apt install gir1.2-ayatanaappindicator3-0.1"
-fi
-if [ "$whatsapp" = yes ]; then
-    command -v node >/dev/null && command -v npm >/dev/null || fail "--with-whatsapp needs Node.js 20+ and npm."
-    node -e 'process.exit(parseInt(process.versions.node) < 20 ? 1 : 0)' \
-        || fail "--with-whatsapp needs Node.js 20 or newer; you have $(node -v)."
 fi
 
 # --- upgrade from Taskpin (Nudgy's old name): stop it, keep its settings and sign-ins ---------------
@@ -100,14 +94,14 @@ else
 fi
 "$bin" --version >/dev/null || fail "the nudgy command doesn't run; see the messages above."
 install -m 644 "$here/nudgy.service" "$HOME/.config/systemd/user/nudgy.service"
-install -m 644 "$here/nudgy-whatsapp.service" "$HOME/.config/systemd/user/nudgy-whatsapp.service"
 
-if [ "$whatsapp" = yes ]; then
-    # Exact versions from package-lock.json. Install scripts are skipped: the two packages that have
-    # them only check the Node version and print notices, and skipping them means no third-party
-    # code runs during the install.
-    (cd "$here/bridges/whatsapp" && npm ci --omit=dev --ignore-scripts --no-fund --no-audit)
-    (cd "$here/bridges/whatsapp" && npm audit --omit=dev) || echo "Warning: npm audit reported issues (above)."
+# --- WhatsApp support was removed: clean up an older install's bridge service and its data ----------
+if [ -e "$HOME/.config/systemd/user/nudgy-whatsapp.service" ] || [ -e "$data/whatsapp-auth" ]; then
+    echo "Removing the old WhatsApp bridge. If \"Nudgy\" is still listed on your phone under WhatsApp >"
+    echo "Linked devices, remove it there."
+    systemctl --user disable --now nudgy-whatsapp.service 2>/dev/null || true
+    rm -f "$HOME/.config/systemd/user/nudgy-whatsapp.service"
+    rm -rf "$data/whatsapp-auth" "$data/whatsapp-chats.json" "$data/whatsapp-bridge.log"
 fi
 
 systemctl --user daemon-reload

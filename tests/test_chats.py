@@ -1,7 +1,6 @@
 import json
 import os
 import tempfile
-import time
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,55 +71,22 @@ class Signal(unittest.TestCase):
             self.assertIn("u-ana", json.loads(saved.read_text()))
 
 
-class WhatsApp(unittest.TestCase):
-    db = {"names": {"49111@s.whatsapp.net": "Ana", "g1@g.us": "Hack team"}, "chats": {
-        "49111@s.whatsapp.net": {"unread": 2, "last": "call me", "ts": 1, "group": False},
-        "g1@g.us": {"unread": 1, "last": "pizza?", "from": "Ben", "ts": 1, "group": True},
-        "49222@s.whatsapp.net": {"unread": 0, "last": "read already", "ts": 1},
-        "49333@s.whatsapp.net": {"unread": 4, "last": "muted", "ts": 1, "muted": -1},
-        "49444@s.whatsapp.net": {"unread": 1, "last": "archived", "ts": 1, "archived": True},
-        "49555@s.whatsapp.net": {"unread": 1, "last": "no name", "ts": 1},
-    }}
-
-    def test_only_unread_unmuted_unarchived(self):
-        items = {i.id: i for i in chats.whatsapp_items(self.db, T)}
-        self.assertEqual(sorted(items), ["whatsapp:49111@s.whatsapp.net", "whatsapp:49555@s.whatsapp.net",
-                                         "whatsapp:g1@g.us"])
-        self.assertEqual(items["whatsapp:49111@s.whatsapp.net"].detail, "Ana · 2 new")
-        self.assertEqual(items["whatsapp:g1@g.us"].title, "Ben: pizza?")
-        self.assertEqual(items["whatsapp:49555@s.whatsapp.net"].detail, "+49555")
-        self.assertEqual(items["whatsapp:49111@s.whatsapp.net"].url, "https://web.whatsapp.com/send?phone=49111")
-        self.assertEqual(items["whatsapp:g1@g.us"].url, "https://web.whatsapp.com/")
-
-    def test_stale_bridge_is_reported(self):
-        with tempfile.TemporaryDirectory() as home, mock.patch.dict(os.environ, {"XDG_DATA_HOME": home}):
-            self.assertIsNone(chats.fetch_whatsapp(T))           # not linked: skipped quietly
-            auth = Path(home) / "nudgy/whatsapp-auth/creds.json"
-            auth.parent.mkdir(parents=True)
-            auth.write_text(json.dumps({"me": {"id": "49@s.whatsapp.net"}}))
-            with self.assertRaises(chats.NotReady):
-                chats.fetch_whatsapp(T)
-            (Path(home) / "nudgy/whatsapp-chats.json").write_text(json.dumps({**self.db, "updated": time.time()}))
-            self.assertEqual(len(chats.fetch_whatsapp(T)), 3)
-
-
 class Combined(unittest.TestCase):
     def test_unlinked_chats_are_not_errors(self):
         with mock.patch.object(google, "sync_all", return_value=({"gmail": []}, {})), \
-                mock.patch.object(chats, "fetch_signal", return_value=None), \
+                mock.patch.object(chats, "fetch_signal", side_effect=chats.NotReady("signal-cli not linked")), \
                 mock.patch.object(sources.claude_notes, "read", return_value=[]), \
                 mock.patch.object(sources.luma, "fetch_luma", return_value=None), \
                 mock.patch.object(sources.keep, "fetch_keep", return_value=None), \
-                mock.patch.object(sources.discover, "fetch", return_value=([], [])), \
-                mock.patch.object(chats, "fetch_whatsapp", side_effect=chats.NotReady("bridge not running")):
+                mock.patch.object(sources.discover, "fetch", return_value=([], [])):
             items, errors = sources.sync_all(T)
         self.assertEqual(items, {"gmail": [], "claude": [], "potential": []})
-        self.assertEqual(errors, {"whatsapp": "bridge not running"})
+        self.assertEqual(errors, {"signal": "signal-cli not linked"})
 
     def test_chat_ranking(self):
         direct = Item("s", "signal", "can you send the deck?", tags=["direct"])
-        group = Item("w", "whatsapp", "lol", tags=["group"])
-        urgent = Item("w2", "whatsapp", "interview tomorrow, urgent", tags=["group"])
+        group = Item("w", "signal", "lol", tags=["group"])
+        urgent = Item("w2", "signal", "interview tomorrow, urgent", tags=["group"])
         self.assertEqual(bucket(score(direct, T)), SOON)
         self.assertEqual(bucket(score(group, T)), LATER)
         self.assertEqual(bucket(score(urgent, T)), SOON)

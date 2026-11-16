@@ -16,7 +16,7 @@ OPEN = """# Open Items
 - [ ] URGENT (event starts Fri 13 Nov, 10:00): apply at https://example.org/apply.
 - [ ] Check the rules. (11 Nov: the event page gives no length.)
 - [x] Opened the editor (Works, 11 Nov).
-- [ ] Retry linking WhatsApp; fixed 11 Nov.
+- [ ] Retry linking Signal; fixed 11 Nov.
 - [ ] Apply for the robotics hackathon (21–22 Nov, Example Hall).
 - [ ] Pottery course phase starts 25 Jan 2027.
 - [ ] Watch the video.
@@ -59,7 +59,7 @@ class Reading(unittest.TestCase):
         due = {k: i.due for k, i in self.items.items()}
         self.assertEqual(due["URGENT (event starts"], "2026-11-13")
         self.assertIsNone(due["Check the rules. (11"])            # a note's date stamp
-        self.assertIsNone(due["Retry linking WhatsA"])            # "fixed 11 Nov" is the past
+        self.assertIsNone(due["Retry linking Signal"])            # "fixed 11 Nov" is the past
         self.assertEqual(due["Apply for the roboti"], "2026-11-21")
         self.assertEqual(due["Pottery course phase"], "2027-01-25")
         self.assertEqual(due["Sat 7 Nov 2026: Team"], "2026-11-07")   # deadline file: overdue stays

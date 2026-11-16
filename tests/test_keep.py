@@ -94,7 +94,6 @@ class Access(unittest.TestCase):
             keep.token_path().write_text("{}")
             with mock.patch.object(google, "sync_all", return_value=({}, {})), \
                     mock.patch.object(chats, "fetch_signal", return_value=None), \
-                    mock.patch.object(chats, "fetch_whatsapp", return_value=None), \
                     mock.patch.object(luma, "fetch_luma", return_value=None), \
                     mock.patch.object(sources.claude_notes, "read", return_value=[]), \
                     mock.patch.object(keep, "list_notes", side_effect=keep.KeepRefused("403 nope")):

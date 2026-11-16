@@ -262,14 +262,14 @@ class ImportantOnly(unittest.TestCase):
         self.assertTrue(self.keeps(Item("t", "task", "Tax", due="2026-11-01")))
         self.assertTrue(self.keeps(Item("m", "gmail", "Action required by Monday", tags=["important"])))
         self.assertTrue(self.keeps(Item("s", "gmail", "Flat contract", tags=["starred"])))
-        self.assertTrue(self.keeps(Item("w", "whatsapp", "Urgent: call me")))
+        self.assertTrue(self.keeps(Item("w", "signal", "Urgent: call me")))
         self.assertTrue(self.keeps(Item("n", "note", "buy milk")))
         self.assertTrue(self.keeps(Item("x", "gmail", "Newsletter"), override="high"))
 
     def test_hides_the_rest(self):
         self.assertFalse(self.keeps(Item("e", "luma", "Hackathon", due=at(days=10))))
         self.assertFalse(self.keeps(Item("m", "gmail", "Your invoice", tags=["important"])))
-        self.assertFalse(self.keeps(Item("w", "whatsapp", "So you are in Germany now?")))
+        self.assertFalse(self.keeps(Item("w", "signal", "So you are in Germany now?")))
         self.assertFalse(self.keeps(Item("l", "linkedin", "New message", tags=["message"])))
         self.assertFalse(self.keeps(Item("c", "claude", "Decide later", tags=["handoff"])))
         self.assertFalse(self.keeps(Item("t", "task", "Brain dump", due="2026-11-07")))
@@ -339,7 +339,7 @@ class StateVersionTest(unittest.TestCase):
             path.write_text(json.dumps({"notes": []}))
             store = Store(path)
             store.save()
-            self.assertEqual(json.loads(path.read_text())["version"], 1)
+            self.assertEqual(json.loads(path.read_text())["version"], 2)
 
 
 class UrgentWordsTest(unittest.TestCase):
@@ -352,3 +352,21 @@ class UrgentWordsTest(unittest.TestCase):
             self.assertGreater(score(mail, NOW_T), before)
         finally:
             settings.update("ranking", {"urgent_words": settings.DEFAULTS["ranking"]["urgent_words"]})
+
+
+class WhatsAppLeftoversTest(unittest.TestCase):
+    def test_old_whatsapp_entries_are_dropped_on_load(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "state.json"
+            path.write_text(json.dumps({
+                "version": 1,
+                "synced": {"whatsapp": [{"id": "whatsapp:1", "source": "whatsapp", "title": "hi"}],
+                           "task": [{"id": "task:1", "source": "task", "title": "Call"}]},
+                "dismissed": {"whatsapp:1": "2026-11-01", "task:2": "2026-11-01"},
+                "overrides": {"whatsapp:1": "high"}}))
+            store = Store(path)
+            self.assertEqual(list(store.synced), ["task"])
+            self.assertEqual(store.dismissed, {"task:2": "2026-11-01"})
+            self.assertEqual(store.overrides, {})
+            store.save()
+            self.assertEqual(json.loads(path.read_text())["version"], 2)

@@ -32,16 +32,16 @@ DIGEST_SECONDS = 3600   # how often Claude turns new jotted notes into steps
 AUTO_CLOSE = 8          # seconds the open list may sit unused before it closes
 WIDTH, HEIGHT = 340, 520
 SOURCE_LABELS = {"note": "Note", "task": "Task", "calendar": "Calendar", "gmail": "Gmail", "linkedin": "LinkedIn",
-                 "google": "Google", "signal": "Signal", "whatsapp": "WhatsApp", "luma": "Luma",
+                 "google": "Google", "signal": "Signal", "luma": "Luma",
                  "claude": "Claude", "keep": "Keep", "potential": "Event idea"}
 # Order of the clusters in the "by source" view.
 DRAG_TARGET = "NUDGY_ITEM"
 LEVEL_FOR_SECTION = {NOW: "high", SOON: "medium", LATER: "low"}
 CLUSTERS = (("note", "Notes"), ("claude", "Claude sessions"), ("calendar", "Calendar"), ("luma", "Luma"),
             ("potential", "Potential events"), ("task", "Google Tasks"), ("keep", "Google Keep"),
-            ("gmail", "Gmail"), ("linkedin", "LinkedIn"), ("signal", "Signal"), ("whatsapp", "WhatsApp"))
+            ("gmail", "Gmail"), ("linkedin", "LinkedIn"), ("signal", "Signal"))
 OPENS_IN = {"calendar": "Google Calendar", "luma": "Luma", "task": "Google Tasks", "gmail": "Gmail",
-            "linkedin": "Gmail", "signal": "Signal Desktop", "whatsapp": "WhatsApp Web", "note": "your browser",
+            "linkedin": "Gmail", "signal": "Signal Desktop", "note": "your browser",
             "claude": "your notes", "keep": "Google Keep", "potential": "your browser"}
 LUMA_STEPS = (
     "Nudgy reads your personal Luma calendar link.\n\n"
@@ -58,11 +58,6 @@ GOOGLE_STEPS = (
     "user, then choose Publish app.\n"
     "4. Under Clients create a Desktop app client and download its JSON file.\n\n"
     "Then choose that file here. Access is read-only.")
-WHATSAPP_WARNING = (
-    "WhatsApp has no official way to read a personal account. Nudgy links like WhatsApp Web using "
-    "an unofficial library. It only reads: it never sends messages or read receipts.\n\n"
-    "This breaks WhatsApp's terms of service, and WhatsApp sometimes bans numbers that use unofficial "
-    "tools. The risk for reading only is low but not zero.\n\nLink anyway?")
 CSS = b"""
 window.nudgy { background-color: #1f2329; color: #e8eaed; }
 .nudgy-head { background-color: #2a2f37; padding: 6px 8px; }
@@ -194,7 +189,7 @@ class Window(Gtk.ApplicationWindow):
         head.pack_end(self.view_button, False, False, 0)
         self.focus_button = self._button("◎", "", self._toggle_focus)
         head.pack_end(self.focus_button, False, False, 0)
-        head.pack_end(self._button("👤", "Accounts: sign in to Google, link Signal and WhatsApp",
+        head.pack_end(self._button("👤", "Accounts: sign in to Google, link Signal",
                                    lambda *_: self._accounts()), False, False, 0)
         head.pack_end(self._button("🔍", "Search everything in Nudgy (Ctrl+F)", lambda *_: self._open_search()),
                       False, False, 0)
@@ -1152,8 +1147,6 @@ class Window(Gtk.ApplicationWindow):
              self._luma_action(state["luma"])),
             ("signal", "Linked like Signal Desktop. Unread messages, until you read or reply.",
              self._signal_action(state["signal"])),
-            ("whatsapp", "Unofficial, read-only. Unread chats, muted ones skipped.",
-             self._whatsapp_action(state["whatsapp"])),
         ]
         for line, (key, about, action) in enumerate(rows):
             name = Gtk.Label(xalign=0)
@@ -1263,13 +1256,6 @@ class Window(Gtk.ApplicationWindow):
             return "Link…", "Install signal-cli first: see the README", None
         return "Link…", "Show a QR code to scan with your phone", self._signal_link
 
-    def _whatsapp_action(self, state: str):
-        if state == "Linked":
-            return "Unlink", "Unlink Nudgy from WhatsApp and stop the bridge", self._whatsapp_unlink
-        if not chats.bridge_installed():
-            return "Link…", f"Install the bridge first: cd {chats.BRIDGE} && npm install", None
-        return "Link…", "Show a QR code to scan with your phone", self._whatsapp_link
-
     def _message(self, text: str, kind=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK) -> int:
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=kind, buttons=buttons)
         dialog.set_keep_above(True)
@@ -1335,7 +1321,10 @@ class Window(Gtk.ApplicationWindow):
         image = Gtk.Image(margin=10)
         image.set_from_icon_name("content-loading-symbolic", Gtk.IconSize.DIALOG)
         area.add(image)
+        area_note = Gtk.Label(wrap=True, max_width_chars=40, margin=10, selectable=True)
+        area.add(area_note)
         dialog.show_all()
+        area_note.hide()
         folder = Path(tempfile.mkdtemp(prefix="nudgy-qr-"))
 
         def show(text: str) -> None:     # called from the linking thread
@@ -1344,6 +1333,9 @@ class Window(Gtk.ApplicationWindow):
                 chats.make_qr(text, png)
             except (OSError, subprocess.SubprocessError) as error:
                 log.warning("could not draw the linking QR code: %s", error)
+                note = ("To see the code here, install qrencode (sudo apt install qrencode), or run "
+                        "'nudgy link signal' in a terminal, which shows it there.")
+                GLib.idle_add(lambda: (area_note.set_text(note), area_note.show(), False)[2])
                 return
             GLib.idle_add(lambda: (image.set_from_file(str(png)), False)[1])
         return dialog, show, folder
@@ -1371,18 +1363,6 @@ class Window(Gtk.ApplicationWindow):
         self._link("Link Signal", "On your phone open Signal > Settings > Linked devices > Link new device, "
                    "and scan this code.", chats.link_signal, "Linking Signal")
 
-    def _whatsapp_link(self) -> None:
-        if self._message(WHATSAPP_WARNING, Gtk.MessageType.WARNING, Gtk.ButtonsType.YES_NO) != Gtk.ResponseType.YES:
-            return
-        self._link("Link WhatsApp", "On your phone open WhatsApp > Settings > Linked devices > Link a device, "
-                   "and scan this code. It changes every 20 seconds.", chats.link_whatsapp, "Linking WhatsApp")
-
-    def _whatsapp_unlink(self) -> None:
-        def done(error) -> None:
-            self.store.synced.pop("whatsapp", None)
-            self._changed()
-            self._after_account_change(error, "Unlinking WhatsApp")
-        self._background(chats.unlink_whatsapp, done)
 
 
 class App(Gtk.Application):

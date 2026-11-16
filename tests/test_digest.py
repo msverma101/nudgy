@@ -74,16 +74,6 @@ class Digest(Isolated):
 
 
 class Changes(Isolated):
-    def test_whatsapp_timestamp_alone_is_not_a_change(self):
-        path = changes.data_dir() / "whatsapp-chats.json"
-        path.parent.mkdir(parents=True)
-        path.write_text(json.dumps({"updated": 1, "chats": {"a": {"unread": 1}}}))
-        before = changes._whatsapp_mark()
-        path.write_text(json.dumps({"updated": 2, "chats": {"a": {"unread": 1}}}))
-        self.assertEqual(changes._whatsapp_mark(), before)
-        path.write_text(json.dumps({"updated": 3, "chats": {"a": {"unread": 2}}}))
-        self.assertNotEqual(changes._whatsapp_mark(), before)
-
     def test_only_changed_sources_are_due(self):
         with mock.patch.object(changes.google, "token_path") as token, \
                 mock.patch.object(changes, "google_changed", return_value=(True, "7")):

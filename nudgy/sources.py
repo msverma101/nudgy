@@ -10,7 +10,7 @@ from .model import Item
 log = logging.getLogger(__name__)
 
 
-GROUPS = ("google", "signal", "whatsapp", "keep", "claude", "events")
+GROUPS = ("google", "signal", "keep", "claude", "events")
 
 
 def sync_all(now: datetime) -> tuple[dict[str, list[Item]], dict[str, str]]:
@@ -22,7 +22,7 @@ def sync_groups(now: datetime, groups: set[str], calendar: list[Item] | None = N
     """Fetches only the named groups. `calendar` is the last good Calendar list, used to drop Luma
     events that are already in Google Calendar when Calendar itself isn't fetched this round."""
     items, errors = google.sync_all(now) if "google" in groups else ({}, {})
-    for name, job in (("signal", chats.fetch_signal), ("whatsapp", chats.fetch_whatsapp)):
+    for name, job in (("signal", chats.fetch_signal),):
         if name not in groups:
             continue
         try:
@@ -85,6 +85,4 @@ def status() -> dict[str, str]:
         "keep": keep.status(),
         "signal": f"Linked ({chats.signal_account()})" if chats.signal_account() else
                   "Not linked" if chats.signal_cli() else "signal-cli not installed",
-        "whatsapp": "Linked" if chats.whatsapp_linked() else
-                    "Not linked" if chats.bridge_installed() else "Bridge not installed",
     }

@@ -13,7 +13,7 @@ from pathlib import Path
 
 NOW, SOON, LATER = "Now", "Soon", "Later"
 LEVELS = ("high", "medium", "normal", "low")     # normal = automatic; medium keeps an item in Soon
-CHAT_SOURCES = ("signal", "whatsapp")
+CHAT_SOURCES = ("signal",)
 EVENT_SOURCES = ("calendar", "luma")
 def urgent_words() -> re.Pattern:
     """Words that make a mail or chat urgent: settings "ranking.urgent_words" (whole words, any case)."""
@@ -46,7 +46,7 @@ def config_dir() -> Path:
 @dataclass
 class Item:
     id: str
-    # note | claude | task | calendar | luma | gmail | linkedin | signal | whatsapp | potential
+    # note | claude | task | calendar | luma | gmail | linkedin | signal | potential
     source: str
     title: str
     detail: str = ""
@@ -350,7 +350,7 @@ def friendly_time(item: Item, now: datetime) -> str:
     return f"Overdue · {day} {clock}" if due < now else f"{day} {clock}"
 
 
-STATE_VERSION = 1
+STATE_VERSION = 2
 STATE_KEYS = ("version", "notes", "synced", "overrides", "dismissed", "steps", "places", "snoozed", "window")
 
 
@@ -359,6 +359,12 @@ def migrate(raw: dict) -> dict:
     version = raw.get("version", 0)
     if version < 1:
         raw = {**raw, "version": 1}           # 0 -> 1: only the version field is new
+    if raw.get("version", 0) < 2:             # 1 -> 2: WhatsApp was removed; drop its leftovers
+        synced = {k: v for k, v in (raw.get("synced") or {}).items() if k != "whatsapp"}
+        raw = {**raw, "version": 2, "synced": synced}
+        for key in ("dismissed", "overrides", "steps", "places", "snoozed"):
+            if isinstance(raw.get(key), dict):
+                raw[key] = {k: v for k, v in raw[key].items() if not str(k).startswith("whatsapp:")}
     return raw
 
 

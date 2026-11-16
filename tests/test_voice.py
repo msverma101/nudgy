@@ -229,7 +229,7 @@ class ActionsTest(unittest.TestCase):
 
     def test_filters_and_summaries(self):
         self.assertTrue(self.ask("any emails?").startswith("1 from Gmail."))
-        self.assertEqual(self.ask("any whatsapp messages"), "Nothing from WhatsApp right now.")
+        self.assertEqual(self.ask("any signal messages"), "Nothing from Signal right now.")
         self.assertIn("Print the poster", self.ask("what's overdue"))
         self.assertTrue(self.ask("summarize my day").startswith("3 things need you now"))
 

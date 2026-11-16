@@ -3,7 +3,7 @@
 Every minute Nudgy asks each source a tiny question instead of fetching everything:
 - Google: Gmail's history number, and whether any task list or calendar has an entry changed
   since the last check (one small request per list and calendar)
-- Claude's notes files and the WhatsApp bridge's file: whether they changed on disk
+- your notes files: whether they changed on disk
 - Signal: asking for new messages *is* the check, so it runs every 2 minutes
 Sources that changed are fetched right away. Everything is also fetched in full once an hour, which
 catches what the checks can't see (an event moving into the next 7 days, Luma, public events).
@@ -11,8 +11,6 @@ catches what the checks can't see (an event moving into the next 7 days, Luma, p
 from __future__ import annotations
 
 import logging
-import hashlib
-import json
 import time
 import urllib.parse
 from datetime import datetime, timezone
@@ -20,7 +18,6 @@ from pathlib import Path
 
 from . import claude_notes, google
 from .sources import GROUPS as FULL_GROUPS          # one list of sync groups, kept in sources.py
-from .model import data_dir
 
 log = logging.getLogger(__name__)
 
@@ -60,14 +57,6 @@ def _files_mark(paths: list[Path]) -> tuple:
     return tuple(p.stat().st_mtime_ns if p.exists() else 0 for p in paths)
 
 
-def _whatsapp_mark() -> str:
-    """The bridge rewrites its file often; only a change in the chats themselves counts."""
-    try:
-        db = json.loads((data_dir() / "whatsapp-chats.json").read_text())
-    except (FileNotFoundError, ValueError):
-        return ""
-    db.pop("updated", None)
-    return hashlib.sha1(json.dumps(db, sort_keys=True).encode()).hexdigest()
 
 
 class Changes:
@@ -77,13 +66,11 @@ class Changes:
         self.last_signal = 0.0
         self.history: str | None = None
         self.notes = _files_mark(claude_notes.paths())
-        self.whatsapp = _whatsapp_mark()
 
     def full_done(self, moment: float | None = None) -> None:
         moment = moment or time.time()
         self.last_full = self.last_check = self.last_signal = moment
         self.notes = _files_mark(claude_notes.paths())
-        self.whatsapp = _whatsapp_mark()
 
     def due(self) -> set[str]:
         """Groups (see sources.GROUPS) that have something new, or are due for their regular fetch."""
@@ -95,10 +82,6 @@ class Changes:
         if notes != self.notes:
             self.notes = notes
             groups.add("claude")
-        whatsapp = _whatsapp_mark()
-        if whatsapp != self.whatsapp:
-            self.whatsapp = whatsapp
-            groups.add("whatsapp")
         if moment - self.last_signal >= SIGNAL_EVERY:
             self.last_signal = moment
             groups.add("signal")

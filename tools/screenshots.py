@@ -67,9 +67,9 @@ def demo_items() -> dict[str, list[Item]]:
             Item(id="luma:meetup", source="luma", title="AI Safety meetup Berlin", detail="Mitte",
                  due=at(days=4, hour=19), end=at(days=4, hour=21), url="https://luma.com"),
         ],
-        "whatsapp": [
-            Item(id="whatsapp:mia", source="whatsapp", title="Mia: are we still on for dinner tonight?",
-                 detail="Mia", tags=["message"]),
+        "signal": [
+            Item(id="signal:mia", source="signal", title="Mia: are we still on for dinner tonight?",
+                 detail="Mia", tags=["direct"]),
         ],
         "potential": [
             Item(id="potential:hack", source="potential", title="Weekend research hackathon",
@@ -232,7 +232,7 @@ def hero(list_shot, bubble_shot, pressing) -> None:
     text(cr, "Nudgy", 60, 120, 54, (1, 1, 1), bold=True)
     text(cr, "a tiny pet that keeps what needs you", 62, 160, 21, (0.96, 0.96, 1))
     text(cr, "in one always-on-top list", 62, 188, 21, (0.96, 0.96, 1))
-    for n, line in enumerate(("Gmail · Calendar · Tasks · Keep · Luma", "Signal · WhatsApp · Claude notes",
+    for n, line in enumerate(("Gmail · Calendar · Tasks · Keep · Luma", "Signal · your notes folder",
                               "click it for the list, talk to it, drag it anywhere")):
         text(cr, line, 62, 236 + n * 28, 16, (0.92, 0.92, 0.98))
     surface.write_to_png(str(OUT / "desktop.png"))

@@ -24,15 +24,14 @@ night, and gives you a side-eye, then a sulk, then its back if the optional focu
 | Gmail | Unread inbox mail from the last 14 days marked important or starred |
 | LinkedIn | Unread LinkedIn message, invitation and job emails in Gmail |
 | Signal | Unread messages, one line per chat, until you read them on any device or reply |
-| WhatsApp | Unread chats, skipping muted and archived ones (unofficial, see below) |
 | Notes folder | Unticked `- [ ]` items from Markdown checklists in a folder you choose (such as Claude Code session notes); off until set |
 | Luma | Events you host, registered for, are waitlisted or invited to, next 14 days |
 | Potential events | Public events across Europe (your home city first) that fit your interests, best first |
 
-Click **👤** in the top bar to sign in to Google and link Signal and WhatsApp. Every service is
+Click **👤** in the top bar to sign in to Google and link Signal. Every service is
 read-only: Nudgy cannot change or send anything, and sends no read receipts. Ticking off a Google item only
 hides it on this laptop. Every minute Nudgy asks each source whether anything new arrived (Gmail, Tasks, Calendar,
-WhatsApp, your Claude notes; Signal every 2 minutes) and fetches only those right away; everything is
+your notes folder; Signal every 2 minutes) and fetches only those right away; everything is
 fetched in full once an hour. ↻ fetches everything now. Once an hour, or right after ↻, Claude turns
 new long jotted notes (Keep notes in Google Tasks, your own notes) into 2–5 concrete ✦ steps under
 them; remove any with ×. This is **off by default** because it sends those notes to Claude; turn it on
@@ -52,7 +51,7 @@ Needs a Linux desktop with systemd, Python 3.10+ and GTK 3 for Python. On Ubuntu
 The installer checks what's missing, never uses sudo and only writes inside your home folder. It installs the
 `nudgy` package with [pipx](https://pipx.pypa.io) if you have it (`sudo apt install pipx`), otherwise into a
 private environment in `~/.local/share/nudgy/app` (needs `python3-venv`). Options:
-`--with-whatsapp` (the unofficial bridge, needs Node.js 20+), `--no-shortcut` (no Super+T / Super+Shift+T),
+`--no-shortcut` (no Super+T / Super+Shift+T),
 `--no-start`, and `--editable` (for working on the code: changes in the folder apply without reinstalling).
 After `git pull`, run `./install.sh` again. `nudgy --version` shows what you have.
 
@@ -65,13 +64,13 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 ## Privacy and security
 
 - **No telemetry, no Nudgy server.** Nudgy never reports anything about you or how you use it. It talks
-  only to the services you connect (Google, Luma, Signal, WhatsApp, public event feeds you enable), to
+  only to the services you connect (Google, Luma, Signal, public event feeds you enable), to
   Ollama on your own computer, and, only if you turn on a Claude feature, to Anthropic through your own
   Claude Code login. When it runs `claude` it switches off Claude Code's usage statistics, error reports
   and update checks, so only the request itself is sent.
 - **Your data stays on your computer**, in `~/.config/nudgy` and `~/.local/share/nudgy`; only your user
   can read them (folders 700, files 600). Sign-in tokens are stored there too.
-- **Read-only by default.** It never sends, deletes or marks anything read on Google, Signal or WhatsApp.
+- **Read-only by default.** It never sends, deletes or marks anything read on Google or Signal.
   Adding to Google Calendar/Tasks by voice needs a separate permission you grant on first use; the
   read-only sign-in is never widened. Reply drafts open for you to edit and send: Nudgy never sends.
 - **Your own Google app.** You create the Google sign-in client yourself (below), so no one else's app
@@ -89,10 +88,11 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
   - links from outside open only if they're `https://`; links that open things on your computer
     (`file://`, `obsidian://`, resuming a Claude session) work only for your own notes.
 - **AI features are off until you turn them on**: the focus check, note steps, talking, and Claude.
-- **Pinned downloads.** The voice packages and the WhatsApp bridge are installed at exact versions
-  (without running package install scripts), and Ollama verifies its models by checksum.
-- **WhatsApp** uses an unofficial library and can get a number banned (see below). It's only
-  installed if you ask for it.
+- **Pinned downloads.** The voice packages are installed at exact versions, and Ollama verifies its
+  models by checksum.
+- **No unofficial access.** Every source uses an official API, a feed or link the service offers, or
+  your own files. (WhatsApp support was removed: it needed an unofficial library that breaks WhatsApp's
+  terms and can get a number banned. Upgrading removes the old bridge and its data.)
 
 ## Using it
 
@@ -140,7 +140,7 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 - Items are grouped by where they come from (Notes, Calendar, Luma, Gmail, Signal…), most pressing
   first inside each group. Click a group's heading to fold it. **▤** switches to Now / Soon / Later.
 - Click an item to open it where it came from: the email in Gmail, the event in Google Calendar or
-  Luma, the chat in WhatsApp Web, or Signal Desktop. **↗** marks items that open something.
+  Luma, or the chat in Signal Desktop. **↗** marks items that open something.
   Right-click a note > **Link to an email or page…** to give it a link too.
 - **Claude sessions** shows what earlier Claude Code sessions left open, by project. Real deadlines in
   the text ("Sun 22 Nov", "21–22 Nov") set the date, and URGENT puts an item in Now. Ticking one
@@ -202,7 +202,7 @@ Click it while it talks to stop it. It understands English and German.
 | Ask | For example |
 | --- | --- |
 | What's on the list | "top 5", "what's next", "what do I have today / tomorrow / this week", "what's overdue", "summarise my day" |
-| Find things | "find the email about the interview", "anything about Luma?", "what did Mia say?", "any WhatsApp messages?" |
+| Find things | "find the email about the interview", "anything about Luma?", "what did Mia say?", "any Signal messages?" |
 | About one item | "when is the dentist?", "where's the lab meeting?", "who sent the reviews email?" |
 | Add | "remind me to call the bank tomorrow at 10", "add milk", "in an hour: stretch" |
 | Change | "I finished the poster", "move the dentist to Monday", "remind me about the slides in an hour", "make the slides urgent", "add a step to the poster: laminate it" |
@@ -283,21 +283,6 @@ New messages are fetched at every sync. A message leaves the list when you read 
 Signal Desktop, or when you reply. To unlink, remove "Nudgy" under Linked devices on your phone.
 Signal drops linked devices that are offline for 30 days.
 
-## Connecting WhatsApp (unofficial)
-
-WhatsApp has no API for personal accounts. Nudgy links like WhatsApp Web using the unofficial
-[Baileys](https://github.com/WhiskeySockets/Baileys) library in `bridges/whatsapp`. **This breaks
-WhatsApp's terms, and WhatsApp sometimes bans numbers that use such tools.** The bridge only reads,
-never marks messages read and does not show you as online, which keeps the risk low but not zero.
-
-1. Run `./install.sh --with-whatsapp`.
-2. Click 👤 > WhatsApp > **Link…** and scan with WhatsApp > Settings > Linked devices > Link a device
-   (or run `nudgy link whatsapp`).
-
-Linking starts `nudgy-whatsapp.service`, which stays connected in the background. Unread counts
-come from WhatsApp itself, so reading a chat on your phone clears it here. **Unlink** in the 👤
-window (or `nudgy unlink whatsapp`) logs the bridge out and stops the service.
-
 ## Connecting Google (once, about 10 minutes)
 
 1. At <https://console.cloud.google.com> create a project.
@@ -350,8 +335,7 @@ version runs, and the old files are kept as `*.json.migrated`.
     nudgy auth                          # sign in to Google
     nudgy sync                          # fetch now and report each source
     nudgy accounts                      # which services are connected
-    nudgy link signal | whatsapp        # link by QR code in the terminal
-    nudgy unlink whatsapp
+    nudgy link signal                   # link Signal by QR code in the terminal
     nudgy luma LINK | off               # connect or disconnect Luma
     nudgy list                          # print the list in the terminal
     nudgy talk                          # talk to the pet (Super+Shift+T)

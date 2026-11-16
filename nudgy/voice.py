@@ -678,13 +678,13 @@ def read_list(items: list[tuple[Item, str]], moment: datetime, count: int = 5, w
 
 
 SOURCE_NAMES = {"note": "your notes", "task": "Google Tasks", "calendar": "your calendar", "gmail": "Gmail",
-                "linkedin": "LinkedIn", "signal": "Signal", "whatsapp": "WhatsApp", "luma": "Luma",
+                "linkedin": "LinkedIn", "signal": "Signal", "luma": "Luma",
                 "claude": "your Claude notes", "keep": "Google Keep", "potential": "event ideas"}
-SOURCE_WORDS = [(r"e-?mails?|gmail|mails?", ("gmail",)), (r"whats ?app", ("whatsapp",)), (r"signal", ("signal",)),
+SOURCE_WORDS = [(r"e-?mails?|gmail|mails?", ("gmail",)), (r"signal", ("signal",)),
                 (r"linkedin", ("linkedin",)), (r"calendar|meetings?|events?|termine?|kalender", ("calendar", "luma")),
                 (r"luma", ("luma",)), (r"google tasks|tasks list|keep", ("task", "keep")),
                 (r"my notes|notizen", ("note",)), (r"claude", ("claude",)),
-                (r"messages?|chats?|nachrichten", ("whatsapp", "signal", "linkedin"))]
+                (r"messages?|chats?|nachrichten", ("signal", "linkedin"))]
 OVERDUE = ("overdue", "überfällig")
 
 
@@ -801,7 +801,7 @@ def describe_item(item: Item, question: str, moment: datetime, language: str = "
         place = item.detail if item.source in ("calendar", "luma") and item.detail else ""
         return f"{title} is at {place}." if place else f"I don't have a place for {title}."
     if question in ("who", "wer"):
-        who = item.detail if item.source in ("gmail", "linkedin", "whatsapp", "signal") and item.detail else ""
+        who = item.detail if item.source in ("gmail", "linkedin", "signal") and item.detail else ""
         return f"{title} is from {who}." if who else f"{title} is in {SOURCE_NAMES.get(item.source, item.source)}."
     return f"{title} is {when}." if when else f"{title} has no date."
 

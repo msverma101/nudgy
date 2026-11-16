@@ -121,7 +121,6 @@ class Feed(unittest.TestCase):
         calendar = [Item("calendar:x", "calendar", "BIG HARBOUR HACK", due="2026-11-11T12:30:00+01:00")]
         with mock.patch.object(google, "sync_all", return_value=({"calendar": calendar}, {})), \
                 mock.patch.object(chats, "fetch_signal", return_value=None), \
-                mock.patch.object(chats, "fetch_whatsapp", return_value=None), \
                 mock.patch.object(sources.claude_notes, "read", return_value=[]), \
                 mock.patch.object(luma, "fetch_luma", return_value=luma.luma_items(FEED, T)):
             items, errors = sources.sync_all(T)
