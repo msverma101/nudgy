@@ -76,13 +76,13 @@ class Changes:
         self.last_check = time.time()
         self.last_signal = 0.0
         self.history: str | None = None
-        self.notes = _files_mark([claude_notes.NOTES / n for n in claude_notes.FILES])
+        self.notes = _files_mark(claude_notes.paths())
         self.whatsapp = _whatsapp_mark()
 
     def full_done(self, moment: float | None = None) -> None:
         moment = moment or time.time()
         self.last_full = self.last_check = self.last_signal = moment
-        self.notes = _files_mark([claude_notes.NOTES / n for n in claude_notes.FILES])
+        self.notes = _files_mark(claude_notes.paths())
         self.whatsapp = _whatsapp_mark()
 
     def due(self) -> set[str]:
@@ -91,7 +91,7 @@ class Changes:
         if moment - self.last_full >= FULL_EVERY:
             return set(FULL_GROUPS)
         groups = set()
-        notes = _files_mark([claude_notes.NOTES / n for n in claude_notes.FILES])
+        notes = _files_mark(claude_notes.paths())
         if notes != self.notes:
             self.notes = notes
             groups.add("claude")

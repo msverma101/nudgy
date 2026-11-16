@@ -46,8 +46,8 @@ def at_home(city="Hamburg"):
 class NoHome(unittest.TestCase):
     def test_without_a_home_city_nothing_is_home(self):
         with at_home(""):
-            self.assertEqual(discover.place_from_geo(53.55, 9.99), ("Germany", "Hamburg"))
-            self.assertEqual(discover.region("Hamburg"), "Germany")
+            self.assertEqual(discover.place_from_geo(53.55, 9.99), ("Europe", "Hamburg"))
+            self.assertEqual(discover.region("Hamburg"), "Europe")
 
 
 class Places(unittest.TestCase):
@@ -58,18 +58,35 @@ class Places(unittest.TestCase):
 
     def test_coordinates(self):
         self.assertEqual(discover.place_from_geo(53.55, 9.99), ("Home", "Hamburg"))
-        self.assertEqual(discover.place_from_geo(48.14, 11.58), ("Germany", "Munich"))
+        self.assertEqual(discover.place_from_geo(50.94, 6.96), ("Near", "Cologne"))       # 360 km away
+        self.assertEqual(discover.place_from_geo(48.14, 11.58), ("Europe", "Munich"))     # 610 km away
         self.assertEqual(discover.place_from_geo(48.86, 2.35), ("Europe", "Paris"))
         self.assertIsNone(discover.place_from_geo(40.71, -74.0))
 
     def test_text(self):
         self.assertEqual(discover.region("Example GmbH, Hamburg, Germany"), "Home")
-        self.assertEqual(discover.region("Example GmbH, Cologne, Germany"), "Germany")
+        self.assertEqual(discover.region("Example GmbH, Cologne, Germany"), "Near")
+        self.assertEqual(discover.region("Example GmbH, Munich, Germany"), "Europe")
         self.assertEqual(discover.region("Volkshaus Zürich"), "Europe")
         self.assertIsNone(discover.region("Austin, TX"))
 
 
+def with_ml_ai_interests(test):
+    """Uses examples/discover-ml-ai.json's topics and big names (the defaults have none)."""
+    import json
+    from pathlib import Path
+    from unittest import mock
+    example = json.loads((Path(__file__).parent.parent / "examples" / "discover-ml-ai.json").read_text())
+    settings = {**discover.config(), "topics": example["topics"], "big_names": example["big_names"]}
+    patcher = mock.patch.object(discover, "config", lambda: settings)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
 class Scoring(unittest.TestCase):
+    def setUp(self):
+        with_ml_ai_interests(self)
+
     def test_prize(self):
         self.assertEqual(discover.biggest_prize("prize pool of €10,000"), 10000)
         self.assertEqual(discover.biggest_prize("CHF 50k in prizes"), 50000)
@@ -85,6 +102,9 @@ class Scoring(unittest.TestCase):
 
 
 class Feed(unittest.TestCase):
+    def setUp(self):
+        with_ml_ai_interests(self)
+
     def test_ics(self):
         with at_home():
             items = discover.from_ics(ICS, NOW, "Google DeepMind")
@@ -115,7 +135,7 @@ class Feed(unittest.TestCase):
 
 
 class OptIn(unittest.TestCase):
-    def test_off_until_config_exists(self):
+    def test_off_until_turned_on(self):
         import os
         import tempfile
         from unittest import mock
@@ -125,6 +145,6 @@ class OptIn(unittest.TestCase):
             self.assertFalse(discover.config()["enabled"])
             with mock.patch.object(discover, "collect", side_effect=AssertionError("fetched while off")):
                 self.assertEqual(discover.fetch(datetime.now(timezone.utc)), ([], []))
-            (discover.config_dir() / "discover.json").parent.mkdir(parents=True, exist_ok=True)
-            (discover.config_dir() / "discover.json").write_text('{"rss": []}')
+            from nudgy import settings
+            settings.update("discover", {"enabled": True, "rss": []})
             self.assertTrue(discover.config()["enabled"])

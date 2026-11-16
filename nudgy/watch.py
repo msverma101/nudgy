@@ -29,35 +29,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections.abc import Callable
 
-from .model import config_dir, data_dir, quiet_claude_env
+from . import settings as prefs
+from .model import data_dir, quiet_claude_env
 
 log = logging.getLogger(__name__)
 
-DEFAULTS = {
-    "enabled": False,                 # sends window titles to a model; turn on in the app or focus.json
-    "interval_seconds": 3600,         # how often the active window is read: once an hour
-    "same_window_samples": 1,         # how many reads in a row on the same window before judging
-    "idle_minutes": 5,                # no judging while you're away from the keyboard
-    "work_apps": ["gnome-terminal", "terminal", "code", "codium", "cursor", "blender", "obsidian",
-                  "godot", "kitty", "alacritty", "jetbrains", "pycharm", "libreoffice", "gimp", "inkscape",
-                  "kdenlive", "davinci", "zotero", "evince", "okular", "nudgy"],
-    "distractions": ["youtube", "instagram", "netflix", "reddit", "twitter", " x.com", "/ x", "tiktok",
-                     "facebook", "twitch", "9gag", "prime video", "disney+", "spotify"],
-    "local_model": "qwen3:8b",
-    "ollama_url": "http://127.0.0.1:11434",
-    "lookups": True,                  # let the local model look up one unknown term on Wikipedia
-    "claude": True,
-    "claude_model": "haiku",
-    "claude_daily_cap": 20,
-    "unsure_below": 0.7,              # a verdict less confident than this counts as unsure
-    # With hourly checks every drifting check steps up once: side-eye, then sulk, then its back.
-    # (With a shorter interval these minutes make it sulk sooner; overdue steps come faster.)
-    "steps_minutes": [50, 50],
-    "steps_minutes_overdue": [50, 50],
-    "log_days": 7,
-    # Your ongoing work: anything clearly about these counts as on task even if no listed task names it.
-    "work_topics": [],
-}
+DEFAULTS = prefs.DEFAULTS["focus"]            # the schema and defaults live in settings.py
 # Titles that say nothing about what you're doing: no judging at all.
 GENERIC = re.compile(r"^\s*((new tab|untitled|mozilla firefox|google chrome|chromium|home|files|"
                      r"desktop|loading…?)\s*[-—–]?\s*)+$", re.I)
@@ -75,26 +52,12 @@ SYSTEM = ("You judge whether the user's active window is helping with their urge
           '"lookup": "one unfamiliar name in the title you would need explained, or empty"}')
 
 
-def config_path() -> Path:
-    return config_dir() / "focus.json"
-
-
 def load_config() -> dict:
-    try:
-        saved = json.loads(config_path().read_text())
-    except (FileNotFoundError, ValueError):
-        saved = {}
-    return {**DEFAULTS, **saved}
+    return prefs.section("focus")
 
 
 def save_config(changes: dict) -> None:
-    try:
-        saved = json.loads(config_path().read_text())
-    except (FileNotFoundError, ValueError):
-        saved = {}
-    saved.update(changes)
-    config_path().parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    config_path().write_text(json.dumps(saved, indent=1))
+    prefs.update("focus", changes)
 
 
 @dataclass

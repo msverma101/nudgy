@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import google
 from .claude_notes import _dates
-from .model import URGENT_WORDS, Item, config_dir, data_dir
+from .model import Item, config_dir, data_dir, urgent_words
 
 SCOPES = ["https://www.googleapis.com/auth/keep.readonly"]
 NOTES_URL = "https://keep.googleapis.com/v1/notes"
@@ -112,7 +112,7 @@ def important(notes: list[dict], now: datetime) -> list[Item]:
         whole = f"{note.get('title', '')}\n{text}"
         upcoming = [d for d in _dates(whole, now.date())
                     if now.date() <= d <= now.date() + timedelta(days=DATE_AHEAD_DAYS)]
-        urgent = bool(URGENT_WORDS.search(whole) or EXTRA_URGENT.search(whole))
+        urgent = bool(urgent_words().search(whole) or EXTRA_URGENT.search(whole))
         updated = note.get("updateTime")
         recent = bool(updated) and \
             datetime.fromisoformat(str(updated).replace("Z", "+00:00")) >= now - timedelta(days=RECENT_DAYS)

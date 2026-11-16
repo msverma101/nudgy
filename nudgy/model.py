@@ -1,6 +1,7 @@
 """Items, priority ranking and local storage. No UI or network code here."""
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -14,8 +15,17 @@ NOW, SOON, LATER = "Now", "Soon", "Later"
 LEVELS = ("high", "medium", "normal", "low")     # normal = automatic; medium keeps an item in Soon
 CHAT_SOURCES = ("signal", "whatsapp")
 EVENT_SOURCES = ("calendar", "luma")
-URGENT_WORDS = re.compile(
-    r"\b(urgent|asap|deadline|action required|interview|job offer|offer letter|final notice|overdue)\b", re.I)
+def urgent_words() -> re.Pattern:
+    """Words that make a mail or chat urgent: settings "ranking.urgent_words" (whole words, any case)."""
+    from . import settings as prefs
+    return _urgent_pattern(tuple(prefs.section("ranking")["urgent_words"]))
+
+
+@functools.lru_cache(maxsize=8)
+def _urgent_pattern(words: tuple[str, ...]) -> re.Pattern:
+    if not words:
+        return re.compile(r"(?!)")                    # matches nothing
+    return re.compile(r"\b(" + "|".join(re.escape(w) for w in words) + r")\b", re.I)
 
 
 def quiet_claude_env() -> dict:
@@ -88,7 +98,7 @@ def _message_score(item: Item) -> int:
         score = 40 if "group" in item.tags else 60      # people writing to you directly come first
     else:
         score = 75 if "starred" in item.tags else 60 if "important" in item.tags else 40
-    return min(score + 25, 88) if URGENT_WORDS.search(item.title) else score
+    return min(score + 25, 88) if urgent_words().search(item.title) else score
 
 
 def score(item: Item, now: datetime, override: str | None = None) -> int:

@@ -95,6 +95,12 @@ def _moment(field: tuple[dict, str] | None, local) -> datetime | date | None:
     return stamp.replace(tzinfo=zone).astimezone(local)
 
 
+def days_ahead() -> int:
+    """How far ahead Luma events are listed (settings "ranking.events_days")."""
+    from . import settings as prefs
+    return int(prefs.section("ranking")["events_days"])
+
+
 def luma_items(text: str, now: datetime, days: int = DAYS_AHEAD) -> list[Item]:
     items = []
     horizon = now + timedelta(days=days)

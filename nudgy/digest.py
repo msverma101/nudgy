@@ -19,7 +19,8 @@ import subprocess
 import time
 from pathlib import Path
 
-from .model import Item, config_dir, data_dir, quiet_claude_env
+from . import settings as prefs
+from .model import Item, data_dir, quiet_claude_env
 
 EVERY = 3600
 SOURCES = ("task", "keep", "note")
@@ -52,11 +53,7 @@ def _save(state: dict) -> None:
 
 
 def settings() -> dict:
-    try:
-        saved = json.loads((config_dir() / "digest.json").read_text())
-    except (FileNotFoundError, ValueError):
-        saved = {}
-    return {"enabled": False, "model": "haiku", **saved}     # off: it sends your notes to Claude
+    return prefs.section("digest")                  # off by default: it sends your notes to Claude
 
 
 def due() -> bool:

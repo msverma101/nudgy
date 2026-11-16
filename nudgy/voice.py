@@ -27,11 +27,11 @@ import time
 import urllib.request
 import wave
 from dataclasses import dataclass, field
-from typing import Any
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .model import Item, config_dir, data_dir, friendly_time, quiet_claude_env
+from . import settings as prefs
+from .model import Item, data_dir, friendly_time, quiet_claude_env
 
 RATE = 16000
 # The speech models are downloaded once by `nudgy voice setup`; after that nothing may go online.
@@ -41,17 +41,7 @@ NO_TELEMETRY = {**os.environ, "HF_HUB_DISABLE_TELEMETRY": "1", "DO_NOT_TRACK": "
 VOICE_PACKAGES = ["faster-whisper==1.2.1", "piper-tts==1.8.0"]
 TOO_LOUD = 15000                    # a quiet room this loud means the microphone gain is turned up too far
 CHUNK = RATE // 10 * 2              # 0.1 s of 16-bit mono
-DEFAULTS: dict[str, Any] = {
-    "enabled": False,
-    "model": "qwen3:4b",
-    "ollama_url": "http://localhost:11434",
-    "whisper": "base",              # "small" hears better but is ~3x slower on a laptop CPU
-    "speak": True,
-    "max_seconds": 20,
-    "claude": False,                # allow Claude for drafting replies and breaking items into steps
-    "microphone": "auto",           # auto: your Bluetooth headset's mic while you wear it, else the laptop's
-    "voices": {"en": "en_US-hfc_female-medium", "de": "de_DE-thorsten-medium"},
-}
+DEFAULTS = prefs.DEFAULTS["voice"]            # the schema and defaults live in settings.py
 VOICE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang}/{code}/{name}/{quality}/{file}"
 MEMORY = 6                           # past exchanges it remembers within one chat
 FORGET_AFTER = 600                   # seconds of quiet before a chat starts fresh
@@ -100,28 +90,12 @@ Their list (most pressing first):
 
 
 # ---- settings and setup ------------------------------------------------------------------------------------
-def settings_path() -> Path:
-    return config_dir() / "voice.json"
-
-
 def settings() -> dict:
-    try:
-        saved = json.loads(settings_path().read_text())
-    except (FileNotFoundError, ValueError):
-        saved = {}
-    merged = {**DEFAULTS, **saved}
-    merged["voices"] = {**DEFAULTS["voices"], **saved.get("voices", {})}
-    return merged
+    return prefs.section("voice")
 
 
 def save_settings(changes: dict) -> None:
-    try:
-        saved = json.loads(settings_path().read_text())
-    except (FileNotFoundError, ValueError):
-        saved = {}
-    saved.update(changes)
-    settings_path().parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    settings_path().write_text(json.dumps(saved, indent=2) + "\n")
+    prefs.update("voice", changes)
 
 
 def home() -> Path:

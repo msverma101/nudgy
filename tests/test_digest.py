@@ -25,12 +25,12 @@ class Isolated(unittest.TestCase):
 class Digest(Isolated):
     def setUp(self):
         super().setUp()
-        folder = digest.config_dir()
-        folder.mkdir(parents=True, exist_ok=True)
-        (folder / "digest.json").write_text('{"enabled": true}')
+        from nudgy import settings
+        settings.update("digest", {"enabled": True})
 
     def test_off_until_turned_on(self):
-        (digest.config_dir() / "digest.json").unlink()
+        from nudgy import settings
+        settings.path().unlink()
         self.assertFalse(digest.settings()["enabled"])
         self.assertEqual(digest.run([JOTTED], {}, ask=self.fail), {})
 

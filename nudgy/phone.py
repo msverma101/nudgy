@@ -14,7 +14,8 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .model import NOW, SOON, Item, bucket, config_dir, friendly_time
+from . import settings as prefs
+from .model import NOW, SOON, Item, bucket, friendly_time
 
 FILE = "nudgy-now.json"
 VERSION = 1
@@ -22,21 +23,13 @@ MAX_NOW, MAX_SOON = 8, 6
 HEARTBEAT = timedelta(hours=1)    # rewritten at least this often, so the phone knows the laptop is on
 
 
-def settings_path() -> Path:
-    return config_dir() / "phone.json"
-
-
 def folder() -> Path | None:
-    try:
-        saved = json.loads(settings_path().read_text()).get("folder")
-    except (FileNotFoundError, ValueError):
-        return None
+    saved = prefs.section("phone")["folder"]
     return Path(saved).expanduser() if saved else None
 
 
 def set_folder(path: str | None) -> None:
-    settings_path().parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    settings_path().write_text(json.dumps({"folder": path}) + "\n")
+    prefs.update("phone", {"folder": path or ""})
 
 
 def _entry(item: Item, moment: datetime) -> dict:

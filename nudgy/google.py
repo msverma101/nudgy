@@ -35,12 +35,16 @@ WRITE_SCOPES = ["https://www.googleapis.com/auth/calendar.events",
                 "https://www.googleapis.com/auth/tasks"]
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+def _ranking(key: str) -> int:
+    """How far sources look (settings "ranking": calendar_days, mail_days)."""
+    from . import settings as prefs
+    return int(prefs.section("ranking")[key])
+
+
 def skip_calendars() -> set[str]:
-    """Calendar names to leave out, from ~/.config/nudgy/google.json: {"skip_calendars": ["Alarms"]}."""
-    try:
-        return set(json.loads((config_dir() / "google.json").read_text()).get("skip_calendars", []))
-    except (FileNotFoundError, ValueError, AttributeError):
-        return set()
+    """Calendar names to leave out (settings "google.skip_calendars")."""
+    from . import settings as prefs
+    return set(prefs.section("google")["skip_calendars"])
 LINKEDIN_KINDS = {"messages-noreply": "message", "invitations": "invitation",
                   "jobs-noreply": "job", "jobalerts-noreply": "job"}
 MAX_MESSAGES = 15
@@ -308,7 +312,8 @@ def _account() -> str:
 def fetch_gmail() -> list[Item]:
     account = _account()
     items = []
-    query = "is:unread in:inbox (is:important OR is:starred) newer_than:14d -category:promotions -from:linkedin.com"
+    query = (f"is:unread in:inbox (is:important OR is:starred) newer_than:{_ranking('mail_days')}d "
+             "-category:promotions -from:linkedin.com")
     for message in _messages(query):
         headers, labels = _headers(message), message.get("labelIds", [])
         name, address = parseaddr(headers.get("from", ""))
@@ -335,7 +340,7 @@ def luma_applications() -> list[str]:
 def fetch_linkedin() -> list[Item]:
     account = _account()
     items = []
-    for message in _messages("is:unread from:linkedin.com newer_than:14d"):
+    for message in _messages(f"is:unread from:linkedin.com newer_than:{_ranking('mail_days')}d"):
         headers = _headers(message)
         _, address = parseaddr(headers.get("from", ""))
         kind = LINKEDIN_KINDS.get(address.split("@")[0].lower())
@@ -359,7 +364,7 @@ def describe(error: Exception) -> str:
 
 def sync_all(now: datetime) -> tuple[dict[str, list[Item]], dict[str, str]]:
     """Returns items per source and errors per source. Failed sources are left out of the items."""
-    jobs = {"calendar": lambda: fetch_calendar(now), "task": fetch_tasks,
+    jobs = {"calendar": lambda: fetch_calendar(now, _ranking("calendar_days")), "task": fetch_tasks,
             "gmail": fetch_gmail, "linkedin": fetch_linkedin}
     items, errors = {}, {}
     for name, job in jobs.items():

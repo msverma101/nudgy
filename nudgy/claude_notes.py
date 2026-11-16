@@ -18,8 +18,6 @@ from pathlib import Path
 
 from .model import Item
 
-NOTES = Path(os.environ.get("NUDGY_NOTES", Path.home() / "Documents/Notes"))
-FILES = ("Open Items.md", "Application Deadlines.md")
 SKIP_SECTIONS = {"missed"}
 HANDOFFS = "session handoffs"
 MONTHS = {m: n for n, m in enumerate(
@@ -87,11 +85,32 @@ def _vault_url(path: Path) -> str:
     return path.as_uri()
 
 
-def read(now: datetime, folder: Path = NOTES) -> list[Item]:
+def folder() -> Path | None:
+    """The chosen notes folder (settings "claude_notes.folder", or $NUDGY_NOTES). None: this source is off."""
+    from . import settings as prefs
+    chosen = os.environ.get("NUDGY_NOTES") or prefs.section("claude_notes")["folder"]
+    return Path(chosen).expanduser() if chosen else None
+
+
+def paths(base: Path | None = None) -> list[Path]:
+    """The files read: the ones named in settings, or every .md file in the folder."""
+    from . import settings as prefs
+    base = base or folder()
+    if base is None:
+        return []
+    names = prefs.section("claude_notes")["files"]
+    return [base / name for name in names] if names else sorted(base.glob("*.md"))
+
+
+def is_deadlines(path: Path) -> bool:
+    """Files named like "Deadlines.md": their dates are hard deadlines, so overdue items stay overdue."""
+    return "deadline" in path.name.lower()
+
+
+def read(now: datetime, base: Path | None = None) -> list[Item]:
     today = now.date()
     items = []
-    for name in FILES:
-        path = folder / name
+    for path in paths(base):
         try:
             lines = path.read_text().splitlines()
         except FileNotFoundError:
@@ -111,9 +130,9 @@ def read(now: datetime, folder: Path = NOTES) -> list[Item]:
                 project = re.search(r"\*\*(.+?)\*\*", text)
                 status = next((_plain(line.split("**Status:**", 1)[1]) for line in lines[number + 1:number + 4]
                                if "**Status:**" in line), "")
-                name = _plain(project.group(1)) if project else "session"
-                when, _, what = name.partition(" · ")
-                title = f"Resume: {what} ({when.rsplit(' ', 1)[0]})" if what else f"Resume: {name}"
+                session = _plain(project.group(1)) if project else "session"
+                when, _, what = session.partition(" · ")
+                title = f"Resume: {what} ({when.rsplit(' ', 1)[0]})" if what else f"Resume: {session}"
                 items.append(Item(id=item_id, source="claude", title=title,
                                   detail=status,
                                   url=f"resume:{resume.group(1)}|{resume.group(2)}" if resume else file_url,
@@ -123,15 +142,14 @@ def read(now: datetime, folder: Path = NOTES) -> list[Item]:
             link = LINK.search(text)
             tags = ["urgent"] if URGENT.search(text) else []
             items.append(Item(id=item_id, source="claude", title=plain, detail=section,
-                              due=_due(text, today, name.startswith("Application")),
+                              due=_due(text, today, is_deadlines(path)),
                               url=link.group(0).rstrip(".,") if link else file_url, tags=tags))
     return items
 
 
-def set_ticked(item_id: str, done: bool, folder: Path = NOTES) -> bool:
+def set_ticked(item_id: str, done: bool, base: Path | None = None) -> bool:
     """Ticks or unticks the line behind an item. Returns False if the line can't be found."""
-    for name in FILES:
-        path = folder / name
+    for path in paths(base):
         try:
             lines = path.read_text().split("\n")
         except FileNotFoundError:

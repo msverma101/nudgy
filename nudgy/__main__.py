@@ -197,8 +197,8 @@ def main() -> int:
             print("Luma disconnected.")
             return 0
         luma.save_feed(sys.argv[2])
-        events = luma.fetch_luma(moment)
-        print(f"Luma connected: {len(events or [])} upcoming events in the next {luma.DAYS_AHEAD} days.")
+        events = luma.fetch_luma(moment, luma.days_ahead())
+        print(f"Luma connected: {len(events or [])} upcoming events in the next {luma.days_ahead()} days.")
         return 0
     if command == "keep":
         if sys.argv[2:3] == ["off"]:

@@ -55,7 +55,7 @@ def sync_groups(now: datetime, groups: set[str], calendar: list[Item] | None = N
     everything = None
     try:
         everything = luma.fetch_luma(now, days=discover.DAYS_AHEAD)
-        horizon = now + timedelta(days=luma.DAYS_AHEAD)
+        horizon = now + timedelta(days=luma.days_ahead())
         events = None if everything is None else [e for e in everything
                                                   if e.due and e.due[:10] <= horizon.date().isoformat()]
         if events is not None:

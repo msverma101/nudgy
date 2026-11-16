@@ -24,10 +24,10 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
-from typing import Any
 
 from . import luma
-from .model import Item, config_dir, data_dir
+from . import settings as prefs
+from .model import Item, data_dir
 
 log = logging.getLogger(__name__)
 
@@ -40,20 +40,12 @@ MIN_FIT = 45
 
 # Off until ~/.config/nudgy/discover.json exists. examples/discover.json is a small starter;
 # copy it there, set your home city and add the sources you follow.
-DEFAULTS: dict[str, Any] = {
-    "luma_calendars": {},
-    "organiser_boost": {},
-    "luma_cities": [],
-    "meetup_groups": [],
-    "rss": [],
-    "watchlist": [],
-    "home": "",
-}
+DEFAULTS = prefs.DEFAULTS["discover"]         # the schema and defaults live in settings.py
 
 # --- where -------------------------------------------------------------------------------------
-GERMANY = (r"germany|deutschland|munich|münchen|muenchen|hamburg|frankfurt|cologne|köln|stuttgart|dresden|"
-           r"leipzig|potsdam|düsseldorf|heidelberg|karlsruhe|hannover|hanover|aachen|darmstadt|tübingen")
-EUROPE = (r"united kingdom|\buk\b|england|scotland|london|oxford|edinburgh|manchester|bristol|france|paris|lyon|"
+EUROPE = (r"germany|deutschland|munich|münchen|muenchen|hamburg|frankfurt|cologne|köln|stuttgart|dresden|"
+          r"leipzig|potsdam|düsseldorf|heidelberg|karlsruhe|hannover|hanover|aachen|darmstadt|tübingen|"
+          r"united kingdom|\buk\b|england|scotland|london|oxford|edinburgh|manchester|bristol|france|paris|lyon|"
           r"palaiseau|netherlands|amsterdam|rotterdam|delft|eindhoven|the hague|switzerland|schweiz|suisse|zurich|"
           r"zürich|geneva|lausanne|basel|st\.? gallen|leukerbad|austria|österreich|vienna|wien|italy|italia|milan|"
           r"milano|rome|roma|venice|turin|spain|españa|madrid|barcelona|valencia|portugal|lisbon|lisboa|porto|"
@@ -62,7 +54,7 @@ EUROPE = (r"united kingdom|\buk\b|england|scotland|london|oxford|edinburgh|manch
           r"tallinn|latvia|riga|lithuania|vilnius|luxembourg|greece|athens|romania|bucharest|bulgaria|sofia|hungary|"
           r"budapest|croatia|zagreb|slovenia|ljubljana|slovakia|bratislava|serbia|belgrade|ukraine|kyiv|iceland")
 ONLINE = r"\bonline\b|virtual|zoom\.us|livestream|google meet|remote event"
-REGION_BONUS = {"Home": 20, "Germany": 12, "Europe": 6, "Online": 4}
+REGION_BONUS = {"Home": 20, "Near": 12, "Europe": 6, "Online": 4}
 HOME_KM = 40                         # events this close to your home city count as home
 CITIES = {"Berlin": (52.52, 13.405), "Potsdam": (52.39, 13.06), "Munich": (48.137, 11.575), "Hamburg": (53.551, 9.993),
           "Frankfurt": (50.11, 8.682), "Cologne": (50.938, 6.96), "Stuttgart": (48.776, 9.183),
@@ -96,27 +88,15 @@ def place_from_geo(lat: float, lon: float) -> tuple[str, str] | None:
     spot = CITIES.get(home())
     if spot and _km((lat, lon), spot) <= HOME_KM:
         return "Home", name or home()
-    in_germany = 47.2 <= lat <= 55.1 and 5.8 <= lon <= 15.1 and not (lon < 7.5 and lat < 47.8)
-    return ("Germany" if in_germany else "Europe"), name
+    if spot and _km((lat, lon), spot) <= near_km():
+        return "Near", name
+    return "Europe", name
 
 # --- what --------------------------------------------------------------------------------------
 KIND = [(r"hackathon|makeathon|buildathon|\bhacks?\b|research sprint|\bsprint\b|\bchallenge\b|game jam|"
          r"\bjam\b|build day", 25, "hackathon"),
         (r"neurips|icml|iclr|cvpr|conference|summit|symposium|\bdemo day\b", 15, "conference"),
         (r"career fair|job fair|hiring|recruit|talent|internship|fellowship|residency", 15, "jobs")]
-SAFETY = (r"apart research|bluedot|ai safety|alignment|interpretab|mechanistic|\bevals?\b|red.?team|"
-          r"reward hack|oversight|ai control|misalign|sycophan")
-ML = [r"machine learning|\bml\b", r"deep learning|neural|transformer", r"\bllms?\b|language model|foundation model",
-      r"\bagents?\b|agentic", r"reinforcement|\brl\b", r"computer vision|\bvision\b", r"robot|physical ai",
-      r"simulation|scientific|science|physics", r"research", r"\bgpu|compute|inference|training"]
-BIG_NAMES = (r"neurips|icml|iclr|anthropic|claude|deepmind|google|openai|mistral|hugging ?face|nvidia|\bmeta\b|"
-             r"microsoft|\baws\b|amazon|"
-             r"apple|elevenlabs|siemens|\bbmw\b|\bsap\b|bosch|merantix|y ?combinator|\byc\b|a16z|sequoia|"
-             r"lovable|cohere|"
-             r"nebius|helsing|black forest labs|aleph alpha|deepl|n8n|langchain|perplexity|databricks|snowflake|"
-             r"stripe|spotify|zalando|delivery hero|n26|celonis|isomorphic|wayve|synthesia|poolside|h company|"
-             r"cursor|replit|vercel|github|\bibm\b|\bintel\b|\bamd\b|qualcomm|samsung|airbus|ellis|"
-             r"max planck|fraunhofer")
 NOISE = (r"improv|karaoke|run club|\brun\b|running|yoga|book club|party|rave|dinner|brunch|coffee|drinks|"
          r"social|aperitivo|games night|wine|beer|choir")
 BEGINNER = r"beginner|intro(duction)? to|non.?technical|for founders|no.?code|for marketers|for pms?\b"
@@ -127,21 +107,18 @@ MONEY = re.compile(r"(?:[€$£]|chf|eur|usd|gbp)\s?(\d[\d,.]*)\s?(k|m)?\b|"
 _boosts: dict[str, int] = dict(DEFAULTS["organiser_boost"])     # refreshed from the config on each collect
 
 
+def near_km() -> float:
+    return float(config().get("near_km") or 0)
+
+
 def home() -> str:
-    """Your home city from discover.json ("home": "Hamburg"), whose events rank first. Empty if not set."""
+    """Your home city (settings "discover.home", e.g. "Hamburg"), whose events rank first. Empty if not set."""
     return str(config().get("home") or "").strip()
 
 
 def config() -> dict:
-    """Your settings. "enabled" is true once discover.json exists, unless it says "enabled": false."""
-    path = config_dir() / "discover.json"
-    try:
-        saved = json.loads(path.read_text())
-    except FileNotFoundError:
-        return {**DEFAULTS, "enabled": False}
-    except ValueError:
-        saved = {}
-    return {**DEFAULTS, "enabled": True, **saved}
+    """Your settings: the "discover" section of settings.json (off until you turn it on)."""
+    return prefs.section("discover")
 
 
 def _get(url: str) -> str:
@@ -154,8 +131,11 @@ def region(where: str) -> str | None:
     text = where.lower()
     if home() and re.search(rf"\b{re.escape(home().lower())}\b", text):
         return "Home"
-    if re.search(GERMANY, text):
-        return "Germany"
+    spot = CITIES.get(home())
+    if spot:                                          # a known city near your home city
+        for city, where_it_is in CITIES.items():
+            if re.search(rf"\b{re.escape(city.lower())}\b", text) and _km(where_it_is, spot) <= near_km():
+                return "Near"
     if re.search(EUROPE, text):
         return "Europe"
     return None                      # elsewhere in the world, or unknown
@@ -183,18 +163,24 @@ def fit(title: str, text: str, place: str, boost: int = 0) -> tuple[int, list[st
     """0-100 and the reasons, from the title, description, organiser and place."""
     whole = f"{title}\n{text}".lower()
     head = title.lower()
-    points, reasons = REGION_BONUS[place] + boost, [home() if place == "Home" else place]
+    label = home() if place == "Home" else f"near {home()}" if place == "Near" else place
+    points, reasons = REGION_BONUS[place] + boost, [label]
     for pattern, value, label in KIND:
         if re.search(pattern, head) or (label == "jobs" and re.search(pattern, whole)):
             points += value
             reasons.append(label)
-    if re.search(SAFETY, whole):
-        points += 12
-        reasons.append("AI safety")
-    points += min(20, 5 * sum(bool(re.search(p, whole)) for p in ML))
-    if re.search(r"\bai\b|artificial intelligence", whole):
-        points += 5
-    names = sorted({m.group(0).strip() for m in re.finditer(BIG_NAMES, f"{title}\n{text}", re.I)}, key=str.lower)
+    settings = config()
+    for topic in settings.get("topics", []):
+        # {"label": "AI safety", "words": ["alignment", ...], "points": 12, "max": 12}: points per matching
+        # word, up to "max" (default: once). Words are regular expressions. An empty label adds no reason.
+        hits = sum(bool(re.search(word, whole)) for word in topic.get("words", []))
+        if hits:
+            each = int(topic.get("points", 0))
+            points += min(int(topic.get("max", each)), each * hits)
+            if topic.get("label"):
+                reasons.append(topic["label"])
+    big = "|".join(settings.get("big_names", [])) or r"(?!)"
+    names = sorted({m.group(0).strip() for m in re.finditer(big, f"{title}\n{text}", re.I)}, key=str.lower)
     names = list({n.lower(): n for n in reversed(names)}.values())        # prefer a capitalised spelling
     names = [n if n != n.lower() else n.title() for n in names]
     if names:

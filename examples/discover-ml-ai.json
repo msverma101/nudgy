@@ -1,0 +1,128 @@
+{
+ "enabled": true,
+ "home": "",
+ "near_km": 500,
+ "luma_calendars": {},
+ "organiser_boost": {
+  "watchlist": 15
+ },
+ "luma_cities": [
+  "london",
+  "paris",
+  "amsterdam"
+ ],
+ "meetup_groups": [],
+ "rss": [
+  "https://dev.events/rss.xml"
+ ],
+ "watchlist": [],
+ "topics": [
+  {
+   "label": "AI safety",
+   "words": [
+    "apart research",
+    "bluedot",
+    "ai safety",
+    "alignment",
+    "interpretab",
+    "mechanistic",
+    "\\bevals?\\b",
+    "red.?team",
+    "reward hack",
+    "oversight",
+    "ai control",
+    "misalign",
+    "sycophan"
+   ],
+   "points": 12
+  },
+  {
+   "label": "",
+   "words": [
+    "machine learning|\\bml\\b",
+    "deep learning|neural|transformer",
+    "\\bllms?\\b|language model|foundation model",
+    "\\bagents?\\b|agentic",
+    "reinforcement|\\brl\\b",
+    "computer vision|\\bvision\\b",
+    "robot|physical ai",
+    "simulation|scientific|science|physics",
+    "research",
+    "\\bgpu|compute|inference|training"
+   ],
+   "points": 5,
+   "max": 20
+  },
+  {
+   "label": "",
+   "words": [
+    "\\bai\\b|artificial intelligence"
+   ],
+   "points": 5
+  }
+ ],
+ "big_names": [
+  "neurips",
+  "icml",
+  "iclr",
+  "anthropic",
+  "claude",
+  "deepmind",
+  "google",
+  "openai",
+  "mistral",
+  "hugging ?face",
+  "nvidia",
+  "\\bmeta\\b",
+  "microsoft",
+  "\\baws\\b",
+  "amazon",
+  "apple",
+  "elevenlabs",
+  "siemens",
+  "\\bbmw\\b",
+  "\\bsap\\b",
+  "bosch",
+  "merantix",
+  "y ?combinator",
+  "\\byc\\b",
+  "a16z",
+  "sequoia",
+  "lovable",
+  "cohere",
+  "nebius",
+  "helsing",
+  "black forest labs",
+  "aleph alpha",
+  "deepl",
+  "n8n",
+  "langchain",
+  "perplexity",
+  "databricks",
+  "snowflake",
+  "stripe",
+  "spotify",
+  "zalando",
+  "delivery hero",
+  "n26",
+  "celonis",
+  "isomorphic",
+  "wayve",
+  "synthesia",
+  "poolside",
+  "h company",
+  "cursor",
+  "replit",
+  "vercel",
+  "github",
+  "\\bibm\\b",
+  "\\bintel\\b",
+  "\\bamd\\b",
+  "qualcomm",
+  "samsung",
+  "airbus",
+  "ellis",
+  "max planck",
+  "fraunhofer"
+ ]
+}
