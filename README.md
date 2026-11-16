@@ -25,7 +25,7 @@ night, and gives you a side-eye, then a sulk, then its back if the optional focu
 | LinkedIn | Unread LinkedIn message, invitation and job emails in Gmail |
 | Signal | Unread messages, one line per chat, until you read them on any device or reply |
 | WhatsApp | Unread chats, skipping muted and archived ones (unofficial, see below) |
-| Claude sessions | Unticked follow-ups and session handoffs from `~/Documents/Notes/Open Items.md` and `Application Deadlines.md` |
+| Notes folder | Unticked `- [ ]` items from Markdown checklists in a folder you choose (such as Claude Code session notes); off until set |
 | Luma | Events you host, registered for, are waitlisted or invited to, next 14 days |
 | Potential events | Public events across Europe (your home city first) that fit your interests, best first |
 
@@ -36,7 +36,7 @@ WhatsApp, your Claude notes; Signal every 2 minutes) and fetches only those righ
 fetched in full once an hour. ↻ fetches everything now. Once an hour, or right after ↻, Claude turns
 new long jotted notes (Keep notes in Google Tasks, your own notes) into 2–5 concrete ✦ steps under
 them; remove any with ×. This is **off by default** because it sends those notes to Claude; turn it on
-with `{"enabled": true}` in `~/.config/nudgy/digest.json` (needs Claude Code installed and signed in).
+with `"digest": {"enabled": true}` in [settings](#settings) (needs Claude Code installed and signed in).
 
 **Limits.** Keep notes without a reminder do not appear, because Google offers no Keep API for
 personal accounts. LinkedIn items appear only if LinkedIn emails you about them.
@@ -121,7 +121,7 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
   your Claude Code login (at most 20 times a day, about 1,000 tokens each). If you're drifting it
   side-eyes and asks, then sulks after 10 minutes, then walks to the middle of the screen and turns
   its back after 15 more (5 and 8 when something is overdue). "Yes, it is" trusts that window for an
-  hour. Nothing urgent means no judging. Settings: `~/.config/nudgy/focus.json` (work apps,
+  hour. Nothing urgent means no judging. Settings: the `focus` section of [settings](#settings) (work apps,
   distractions, your work topics, model, Claude cap). `nudgy focus` shows today's summary;
   `nudgy focus test "<title>"` shows how a title would be judged; the log stays local in
   `~/.local/share/nudgy/focus-log.jsonl`.
@@ -130,7 +130,7 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
   shortcut runs `nudgy toggle`; change it in Settings > Keyboard > Custom Shortcuts.
 - **Important only (◎, on by default).** Shows only what needs attention today: events within
   2 hours or happening now, anything due today or overdue, starred mail, mail or chats with words
-  like urgent, deadline or interview, anything you set to high, and your own notes. Everything else
+  like urgent or deadline (your own list: `ranking.urgent_words`), anything you set to high, and your own notes. Everything else
   waits behind **+ N less urgent · show all** (or ◉ in the top bar) and comes back by itself as its
   date gets close. `nudgy list --all` prints everything.
 - Type a note and press Enter. `!` at the start or end means high priority; ending with `today` or
@@ -165,13 +165,14 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 ## Priority
 
 **Now:** events in progress or within 2 hours, overdue items, anything you set to high, and mail
-containing words like urgent, deadline or interview. **Soon:** due today or tomorrow, important or
+containing urgent words (`ranking.urgent_words`, e.g. urgent, deadline). **Soon:** due today or tomorrow, important or
 starred mail, LinkedIn messages. **Later:** everything else.
 
 ## Potential events
 
-This is **off by default**. To turn it on, copy `examples/discover.json` (a small starter:
-a few Luma city pages and dev.events) to `~/.config/nudgy/discover.json`, set `"home"` to your city, and
+This is **off by default**. To turn it on, put a `discover` section in [settings](#settings): start from
+`examples/discover.json` (a few Luma city pages and dev.events) or `examples/discover-ml-ai.json` (the same
+plus ML and AI-safety interests), set `"enabled": true` and `"home"` to your city, and
 add the Luma calendars (`"cal-…": "name"`, from a calendar's Subscribe link), Meetup groups and RSS feeds
 you follow. Nudgy then searches
 public event listings every 6 hours (`nudgy events` searches now) and keeps
@@ -186,7 +187,8 @@ plus AI safety and ML topics, big-name companies, prize money, and closeness to 
 applied or are waitlisted for are left out (from your Luma link and Luma's emails, subjects only).
 Important only shows the best 6; tick one to hide it ("not interested").
 
-Change the sources, organiser weights or watchlist in `~/.config/nudgy/discover.json`.
+Change the sources, `topics` you care about (each with words and points), `big_names`, organiser weights
+or watchlist in the same section. With no topics, events are ranked by kind, prizes and distance only.
 
 ## Talking to Nudgy
 
@@ -214,7 +216,7 @@ Questions about the list are answered straight from it, so they're instant and e
 used to work out what you want done and to chat. Moving a Google item only hides it here until then (Nudgy
 reads Google; it doesn't change it), while your own notes really move.
 
-\* **Claude** (drafting, breaking into steps) is off until you set `"claude": true` in `~/.config/nudgy/voice.json`;
+\* **Claude** (drafting, breaking into steps) is off until you set `"voice": {"claude": true}` in [settings](#settings);
 it gets the item's title (and the email's text, for a draft) and no tools. Drafts open in a window you edit;
 "Open in Gmail" fills in a reply for you to send: Nudgy never sends anything.
 **Google**: the first time you ask, Nudgy asks for permission to add to your Calendar and Tasks, in a separate
@@ -237,7 +239,7 @@ Set it up once (about 3.5 GB of downloads, into `~/.local/share/nudgy/voice`). Y
     nudgy voice ask "what's next?"   # try the thinking part by typing
 
 The models load while you're still talking and are let go after a few quiet minutes. Change models or
-voices in `~/.config/nudgy/voice.json` (for example `"microphone": "laptop"` to never use a headset mic, `"whisper": "small"` hears better but is slower, or
+voices in the `voice` section of [settings](#settings) (for example `"microphone": "laptop"` to never use a headset mic, `"whisper": "small"` hears better but is slower, or
 `"model": "qwen3:1.7b"` for laptops without a GPU). Audio is never saved: each recording goes to a private
 temporary file that's deleted right after it's transcribed.
 
@@ -311,7 +313,37 @@ window (or `nudgy unlink whatsapp`) logs the bridge out and stops the service.
 7. Run `nudgy sync` to check each source.
 
 To leave calendars out (for example one that only holds alarms), list their names in
-`~/.config/nudgy/google.json`: `{"skip_calendars": ["Alarms"]}`.
+[settings](#settings): `"google": {"skip_calendars": ["Alarms"]}`.
+
+## Settings
+
+All preferences live in one file, `~/.config/nudgy/settings.json`, which only holds what you changed;
+everything else uses the defaults in [`nudgy/settings.py`](nudgy/settings.py) (the full list, with comments).
+A value of the wrong type is ignored with a warning in the log, so a typo never breaks a feature. Sign-ins
+are not settings: they stay in their own private files. Sections:
+
+| Section | What it holds |
+| --- | --- |
+| `ranking` | `urgent_words` (make mail and chats urgent), `calendar_days`, `mail_days`, `events_days` |
+| `google` | `skip_calendars`: calendar names to leave out |
+| `claude_notes` | `folder` with Markdown checklists (off while empty), `files` (empty: every `.md` in it) |
+| `focus` | the focus check: on/off, interval, work apps, distractions, models, Claude cap, `work_topics` |
+| `voice` | talking: on/off, model, Whisper size, voices, microphone, whether Claude may be used |
+| `digest` | turning long notes into steps with Claude: on/off, model |
+| `discover` | the event finder: on/off, `home`, `near_km`, sources, `topics`, `big_names`, watchlist |
+| `phone` | `folder` shared with the Android app |
+
+For example, to read your Claude Code notes and treat interview mail as urgent:
+
+    {
+     "claude_notes": {"folder": "~/Documents/Notes"},
+     "ranking": {"urgent_words": ["urgent", "asap", "deadline", "interview", "job offer"]}
+    }
+
+In a notes folder, a file with "deadline" in its name (like `Deadlines.md`) holds hard deadlines: its
+dated items stay overdue instead of being treated as notes about the past. Older versions kept one file
+per feature (`focus.json`, `voice.json`, …); they are moved into `settings.json` the first time a new
+version runs, and the old files are kept as `*.json.migrated`.
 
 ## Commands
 
