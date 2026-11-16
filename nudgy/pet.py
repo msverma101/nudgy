@@ -25,6 +25,7 @@ import threading
 import time
 import warnings
 from datetime import datetime
+from typing import Any
 
 import cairo
 import gi
@@ -466,7 +467,7 @@ def _extras(cr, face: str, phase: float, cx: float, cy: float, ink, level: float
     if face == "cheer":
         cr.set_source_rgb(1.0, 0.85, 0.3)
         cr.set_line_width(1.5)
-        for x, y in ((12, 18), (74, 24), (72, 58)):
+        for x, y in ((12.0, 18.0), (74.0, 24.0), (72.0, 58.0)):
             twinkle = 2.5 + math.sin(phase * 4 + x) * 1.2
             cr.move_to(x - twinkle, y)
             cr.line_to(x + twinkle, y)
@@ -524,8 +525,8 @@ def _extras(cr, face: str, phase: float, cx: float, cy: float, ink, level: float
                 cr.set_source_rgba(0.62, 0.64, 0.68, alpha)
                 x = cx + side * (6 + rise * 3)
                 y = cy - 30 - rise * 6
-                for dx, dy, size in ((0, 0, 3.2), (2.8, -1, 2.5), (-2.6, -1.2, 2.3)):
-                    cr.arc(x + dx * (1 + rise / 3), y + dy, size * (1 + rise / 2.5), 0, 2 * math.pi)
+                for ox, oy, puff in ((0.0, 0.0, 3.2), (2.8, -1.0, 2.5), (-2.6, -1.2, 2.3)):
+                    cr.arc(x + ox * (1 + rise / 3), y + oy, puff * (1 + rise / 2.5), 0, 2 * math.pi)
                     cr.fill()
     if face == "sulk":
         cr.set_source_rgb(0.85, 0.2, 0.2)
@@ -715,9 +716,9 @@ class Pet(Gtk.Window):
         self.save_timer = 0
         self.tray: Tray | None = None
         self.watcher = None                   # the focus check, set by the app
-        self.voice_worker = None              # speech models, started the first time you talk
-        self.chat = None
-        self.stop_listening = None
+        self.voice_worker: Any = None         # speech models (voice.Worker), started the first time you talk
+        self.chat: Any = None                 # voice.Chat
+        self.stop_listening: threading.Event = threading.Event()
         self.speaking = None                  # the player reading an answer aloud
         self.bubble: Bubble | None = None
         self.home: tuple[int, int] | None = None     # where it was before it walked off to sulk
@@ -1110,6 +1111,7 @@ class Pet(Gtk.Window):
                 if kind == "task":
                     made = google.add_task(title, when)
                 else:
+                    assert due is not None and when is not None      # checked before this job started
                     all_day = "T" not in due
                     start = when if not all_day else when.replace(tzinfo=moment.tzinfo)
                     made = google.add_event(title, start, reply.minutes or 60, all_day)

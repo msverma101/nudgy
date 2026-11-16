@@ -27,6 +27,7 @@ import time
 import urllib.request
 import wave
 from dataclasses import dataclass, field
+from typing import Any
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -40,7 +41,7 @@ NO_TELEMETRY = {**os.environ, "HF_HUB_DISABLE_TELEMETRY": "1", "DO_NOT_TRACK": "
 VOICE_PACKAGES = ["faster-whisper==1.2.1", "piper-tts==1.8.0"]
 TOO_LOUD = 15000                    # a quiet room this loud means the microphone gain is turned up too far
 CHUNK = RATE // 10 * 2              # 0.1 s of 16-bit mono
-DEFAULTS = {
+DEFAULTS: dict[str, Any] = {
     "enabled": False,
     "model": "qwen3:4b",
     "ollama_url": "http://localhost:11434",
@@ -334,6 +335,7 @@ def _record(stop: threading.Event, on_level, max_seconds: float, tries: int, sou
     endpoint = Endpoint(max_seconds)
     verdict = "more"
     try:
+        assert process.stdout is not None        # opened with stdout=PIPE
         while not stop.is_set() and verdict == "more":
             chunk = process.stdout.read(CHUNK)
             if not chunk:
@@ -399,6 +401,7 @@ class Worker:
                                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
                                                 bufsize=1, env=OFFLINE)
             self.last_used = time.time()
+            assert self.process.stdin is not None and self.process.stdout is not None
             self.process.stdin.write(json.dumps(request) + "\n")
             self.process.stdin.flush()
             line = self.process.stdout.readline()
@@ -526,7 +529,7 @@ def parse_reply(content: str, items: list[tuple[Item, str]], heard: str = "") ->
     except ValueError:
         data = {}
     say = str(data.get("say") or "").strip() or (content or "").strip()[:200] or "Hmm, I lost my words."
-    action = data.get("action") if data.get("action") in ACTIONS else "none"
+    action = str(data.get("action")) if data.get("action") in ACTIONS else "none"
     item = None
     try:
         number = int(data.get("item") or 0)
@@ -559,8 +562,8 @@ def parse_reply(content: str, items: list[tuple[Item, str]], heard: str = "") ->
         minutes = max(0, min(600, int(data.get("minutes") or 0)))
     except (TypeError, ValueError):
         minutes = 0
-    which = data.get("which") if data.get("which") in ("all", "today", "now") else "all"
-    level = data.get("level") if data.get("level") in ("high", "low", "normal", "medium") else ""
+    which = str(data.get("which")) if data.get("which") in ("all", "today", "now") else "all"
+    level = str(data.get("level")) if data.get("level") in ("high", "low", "normal", "medium") else ""
     if action == "priority" and not level:
         level = "high" if re.search(r"urgent|important|wichtig|dringend|high", heard, re.I) else "normal"
     if action == "read_list":
@@ -743,7 +746,8 @@ def lookup(text: str, items: list[tuple[Item, str]], moment: datetime, language:
         soon_count = sum(1 for _, sec in items if sec == "Soon")
         overdue = _overdue(items, moment, language)
         upcoming = sorted((i for i, _ in items if i.source in ("calendar", "luma") and i.due and "T" in i.due and
-                           datetime.fromisoformat(i.due).astimezone(moment.tzinfo) >= moment), key=lambda i: i.due)
+                           datetime.fromisoformat(i.due).astimezone(moment.tzinfo) >= moment),
+                          key=lambda i: i.due or "")
         parts = [(f"{now_count} thing{'s need' if now_count != 1 else ' needs'} you now" if now_count
                   else "Nothing needs you right now")
                  + f", and {soon_count} {'are' if soon_count != 1 else 'is'} coming up soon."]
@@ -807,12 +811,12 @@ def lookup(text: str, items: list[tuple[Item, str]], moment: datetime, language:
                 name = SOURCE_NAMES.get(sorted(wanted)[0], "there")
                 return (f"Nothing in {name} about {query}." if not german else f"In {name} nichts zu {query}.")
         sections = {i.id: sec for i, sec in items}
-        hits = [(i, sections.get(i.id, "")) for i, _ in hits]
-        if not hits:
+        found_items = [(i, sections.get(i.id, "")) for i, _ in hits]
+        if not found_items:
             return f"I couldn't find anything about {query}." if not german else f"Zu {query} finde ich nichts."
-        lead = (f"I found {len(hits)}." if len(hits) > 1 else "I found one.") if not german \
-            else f"Gefunden: {len(hits)}."
-        return _listing(hits, moment, language, lead)
+        lead = (f"I found {len(found_items)}." if len(found_items) > 1 else "I found one.") if not german \
+            else f"Gefunden: {len(found_items)}."
+        return _listing(found_items, moment, language, lead)
     return None
 
 

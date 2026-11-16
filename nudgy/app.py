@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from functools import partial
 import shutil
 import subprocess
 import threading
@@ -135,7 +137,7 @@ class Window(Gtk.ApplicationWindow):
         self.current = self.store.snapshot()
         self.save_timer = 0
         self.accounts_grid = None
-        self.pending = None                  # a sync asked for while another was running
+        self.pending: str | None = None      # a sync asked for while another was running
         self.on_update = self.on_finish = self.on_hide = None   # the pet listens to these
         self._build()
         self._place()
@@ -695,7 +697,7 @@ class Window(Gtk.ApplicationWindow):
     def _step_menu(self, item: Item, index: int, event) -> None:
         step = self.store.steps[item.id][index]
         menu = Gtk.Menu()
-        choices = []
+        choices: list[tuple[str, Callable[[], object]]] = []
         target = self._step_item(step)
         if step.get("url") and self._openable(target):
             choices.append((f"Open in {self._opens_in(target)}", lambda: self._open(target)))
@@ -837,7 +839,7 @@ class Window(Gtk.ApplicationWindow):
 
     def _menu(self, item: Item, event) -> None:
         menu = Gtk.Menu()
-        choices = []
+        choices: list[tuple[str, Callable[[], object]]] = []
         if self._openable(item):
             choices.append((f"Open in {self._opens_in(item)}", lambda: self._open(item)))
         if item.source == "note":
@@ -847,15 +849,15 @@ class Window(Gtk.ApplicationWindow):
         choices.append(("Add steps…", lambda: self._add_steps(item)))
         choices.append(("Make a step of…", lambda: self._choose_parent(item)))
         if any(step["done"] for step in self.store.steps.get(item.id, [])):
-            choices.append(("Clear finished steps", lambda: (self.store.clear_done_steps(item.id), self._changed())))
+            choices.append(("Clear finished steps", lambda: self._clear_done_steps(item)))
         for where in ("top", "up", "down", "bottom"):
             label = {"top": "Move to top", "up": "Move up", "down": "Move down", "bottom": "Move to bottom"}[where]
-            choices.append((label, lambda where=where: self._move_by(item, where)))
+            choices.append((label, partial(self._move_by, item, where)))
         if item.id in self.store.places:
             choices.append(("Back to automatic position", lambda: self._unplace(item)))
         for level in LEVELS:
             name = {"normal": "automatic", "medium": "medium (Soon)"}.get(level, level)
-            choices.append((f"Priority: {name}", lambda level=level: self._set_priority(item, level)))
+            choices.append((f"Priority: {name}", partial(self._set_priority, item, level)))
         choices.append(("Done", lambda: self._finish(item)))
         for label, action in choices:
             entry = Gtk.MenuItem(label=label)
@@ -894,6 +896,10 @@ class Window(Gtk.ApplicationWindow):
     def _cycle(self, item: Item) -> None:
         current = self.store.overrides.get(item.id, "normal")
         self._set_priority(item, {"normal": "high", "high": "low", "medium": "low", "low": "normal"}[current])
+
+    def _clear_done_steps(self, item: Item) -> None:
+        self.store.clear_done_steps(item.id)
+        self._changed()
 
     def _finish(self, item: Item) -> None:
         self.store.finish(item, now())
@@ -1408,7 +1414,7 @@ class App(Gtk.Application):
                 self.pet.show_all()
                 if self.window.store.window.get("list_open"):
                     self.pet.open_list()
-        elif not self.pet.get_visible():
+        elif self.pet is not None and not self.pet.get_visible():
             self.pet.show_pet()
 
 

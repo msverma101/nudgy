@@ -54,7 +54,7 @@ class Item:
 
     @property
     def all_day(self) -> bool:
-        return bool(self.due) and "T" not in self.due
+        return self.due is not None and self.due != "" and "T" not in self.due
 
 
 def _when(value: str, now: datetime) -> datetime:
@@ -163,10 +163,8 @@ def ranked(items: list[Item], now: datetime, overrides: dict[str, str],
 
 def place_between(before: float | None, after: float | None) -> float:
     """A position between two neighbours; None means the start or end of the list."""
-    if before is None and after is None:
-        return 0.0
     if before is None:
-        return after - 1
+        return 0.0 if after is None else after - 1
     if after is None:
         return before + 1
     return (before + after) / 2
@@ -325,7 +323,7 @@ def parse_quick_add(text: str, now: datetime) -> tuple[str, str | None, str | No
 
 def _ended(item: Item, now: datetime) -> bool:
     """Cached events can outlive their end time while the laptop is offline."""
-    return bool(item.end) and _when(item.end, now) <= now
+    return item.end is not None and item.end != "" and _when(item.end, now) <= now
 
 
 def friendly_time(item: Item, now: datetime) -> str:

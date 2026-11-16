@@ -118,6 +118,7 @@ def link_signal(on_uri: Callable[[str], None], on_start: Callable | None = None)
     if on_start:
         on_start(process)          # lets the window cancel linking
     output = []
+    assert process.stdout is not None            # opened with stdout=PIPE
     for line in process.stdout:
         output.append(line.strip())
         if line.startswith("sgnl://"):
@@ -258,6 +259,7 @@ def link_whatsapp(on_qr: Callable[[str], None], on_start: Callable | None = None
     if on_start:
         on_start(process)
     linked = False
+    assert process.stdout is not None            # opened with stdout=PIPE
     for raw in process.stdout:
         try:
             event = json.loads(raw)

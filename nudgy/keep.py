@@ -115,7 +115,7 @@ def important(notes: list[dict], now: datetime) -> list[Item]:
         urgent = bool(URGENT_WORDS.search(whole) or EXTRA_URGENT.search(whole))
         updated = note.get("updateTime")
         recent = bool(updated) and \
-            datetime.fromisoformat(updated.replace("Z", "+00:00")) >= now - timedelta(days=RECENT_DAYS)
+            datetime.fromisoformat(str(updated).replace("Z", "+00:00")) >= now - timedelta(days=RECENT_DAYS)
         if not (upcoming or urgent or open_items or recent):
             continue
         tags = [t for t, on in (("urgent", urgent), ("list", bool(open_items)), ("recent", recent)) if on]

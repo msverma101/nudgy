@@ -20,9 +20,11 @@ import re
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 from dataclasses import asdict
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
+from typing import Any
 
 from . import luma
 from .model import Item, config_dir, data_dir
@@ -38,7 +40,7 @@ MIN_FIT = 45
 
 # Off until ~/.config/nudgy/discover.json exists. examples/discover.json is a small starter;
 # copy it there, set your home city and add the sources you follow.
-DEFAULTS = {
+DEFAULTS: dict[str, Any] = {
     "luma_calendars": {},
     "organiser_boost": {},
     "luma_cities": [],
@@ -216,6 +218,7 @@ def _event(title, text, where, start, end, url, organiser="", geo: tuple[str, st
     """geo: (region, city) when the source gave coordinates; otherwise the place is read from the text."""
     if not title:
         return None
+    place: str | None
     if geo:
         place, city = geo
         city = city or place
@@ -426,7 +429,7 @@ def fetch(now: datetime, force: bool = False, applied=None) -> tuple[list[Item],
     return items, names
 
 
-def drop_known(found: list[Item], mine: list[Item], applied: list[str] = ()) -> list[Item]:
+def drop_known(found: list[Item], mine: list[Item], applied: Sequence[str] = ()) -> list[Item]:
     """Leave out events you are already registered, applied or waitlisted for."""
     titles = {luma._key(i)[0] for i in mine} | {re.sub(r"\W+", "", name.lower()) for name in applied}
     urls = {i.url.rstrip("/") for i in mine if i.url}

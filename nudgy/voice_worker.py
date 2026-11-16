@@ -9,13 +9,14 @@ Models load on first use and stay loaded while the worker runs. Everything is lo
 """
 import logging
 import json
+from typing import Any
 import sys
 import wave
 
 log = logging.getLogger(__name__)
 
-whisper = None
-voices = {}
+whisper: Any = None
+voices: dict[str, Any] = {}
 
 
 def load_whisper(request: dict) -> None:

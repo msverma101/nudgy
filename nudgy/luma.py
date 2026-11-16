@@ -13,6 +13,7 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .model import Item, config_dir
@@ -65,7 +66,8 @@ def _unescape(value: str) -> str:
 def parse_ics(text: str) -> list[dict]:
     """VEVENTs as {NAME: (params, value)}. Handles folded lines; enough for Luma's feed."""
     lines = re.sub(r"\r?\n[ \t]", "", text).splitlines()
-    events, current = [], None
+    events: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
     for line in lines:
         if line == "BEGIN:VEVENT":
             current = {}

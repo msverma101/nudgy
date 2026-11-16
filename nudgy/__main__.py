@@ -161,10 +161,10 @@ def main() -> int:
         return 0
     if command == "sync":
         store = Store()
-        items, errors = sources.sync_all(moment)
-        store.synced.update(items)
+        fetched, errors = sources.sync_all(moment)
+        store.synced.update(fetched)
         store.save()
-        for name, group in items.items():
+        for name, group in fetched.items():
             print(f"{name}: {len(group)} items")
         for name, reason in errors.items():
             print(f"{name}: FAILED: {reason}", file=sys.stderr)
@@ -182,8 +182,9 @@ def main() -> int:
         return subprocess.call([cli, "link", "-n", "Nudgy"])
     if command == "link" and sys.argv[2:3] == ["whatsapp"]:
         print("Scan with WhatsApp > Settings > Linked devices > Link a device.")
-        chats.link_whatsapp(lambda qr: subprocess.run(
-            chats.bridge_command("qr-terminal", qr), env=chats.bridge_env()))
+        def show(qr: str) -> None:
+            subprocess.run(chats.bridge_command("qr-terminal", qr), env=chats.bridge_env())
+        chats.link_whatsapp(show)
         print("Linked. The bridge now runs in the background.")
         return 0
     if command == "unlink" and sys.argv[2:3] == ["whatsapp"]:
@@ -197,7 +198,7 @@ def main() -> int:
             return 0
         luma.save_feed(sys.argv[2])
         events = luma.fetch_luma(moment)
-        print(f"Luma connected: {len(events)} upcoming events in the next {luma.DAYS_AHEAD} days.")
+        print(f"Luma connected: {len(events or [])} upcoming events in the next {luma.DAYS_AHEAD} days.")
         return 0
     if command == "keep":
         if sys.argv[2:3] == ["off"]:

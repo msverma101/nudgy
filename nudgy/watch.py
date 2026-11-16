@@ -122,7 +122,7 @@ def parse_verdict(text: str, judge: str) -> Verdict:
     lookup = str(raw.get("lookup") or "").strip()
     task = str(raw.get("task") or "")
     task = "" if task.strip().lower() in ("none", "n/a", "null", "-") else task
-    return Verdict(verdict, confidence, task[:120], str(raw.get("reason") or "")[:160],
+    return Verdict(str(verdict), confidence, task[:120], str(raw.get("reason") or "")[:160],
                    judge, lookup if 0 < len(lookup) <= 40 else "")
 
 
@@ -347,9 +347,9 @@ def summary(day: datetime | None = None) -> str:
     entries = [e for e in entries if e.get("ts", "").startswith(day_text)]
     if not entries:
         return "No focus checks logged today."
-    minutes = {}
-    judges = {}
-    drifts = {}
+    minutes: dict[str, float] = {}
+    judges: dict[str, int] = {}
+    drifts: dict[str, float] = {}
     for entry in entries:
         minutes[entry["verdict"]] = minutes.get(entry["verdict"], 0) + entry.get("minutes", 0)
         judges[entry.get("judge", "?")] = judges.get(entry.get("judge", "?"), 0) + 1
@@ -462,7 +462,7 @@ class Watcher:
             buttons = (("Okay, okay", self._back), ("It's on task", lambda: self._trust(app, title, tasks)))
         else:
             text = f"I'm not watching this. Come get me when you're back on “{task}”."
-            buttons = (("I'm back", self._back),)
+            buttons = (("I'm back", self._back),)   # type: ignore[assignment]  # fewer buttons
         self.pet.judge(level, text, buttons)
         return False
 

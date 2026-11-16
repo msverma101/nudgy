@@ -10,6 +10,7 @@ Settings (optional) in ~/.config/nudgy/digest.json: {"enabled": true, "model": "
 """
 from __future__ import annotations
 
+from typing import Any
 import hashlib
 import json
 import re
@@ -134,7 +135,7 @@ def run(items: list[Item], steps: dict, ask=ask_claude) -> dict:
         return {}
     state = _state()
     todo = candidates(items, steps, state.get("done", {}))
-    result = {"steps": {}, "error": "", "tokens": 0}
+    result: dict[str, Any] = {"steps": {}, "error": "", "tokens": 0}
     for start in range(0, len(todo), MAX_PER_CALL):
         batch = todo[start:start + MAX_PER_CALL]
         try:
