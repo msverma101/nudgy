@@ -189,9 +189,11 @@ def _current() -> dict[str, dict[str, Any]]:
     """Every section, defaults filled in. Cached until the file changes. Don't modify the result."""
     migrate()
     try:
-        mtime = path().stat().st_mtime_ns
+        info = path().stat()
+        # The file's identity, size and time: a timestamp alone can repeat within a few milliseconds.
+        mtime: Any = (str(path()), info.st_ino, info.st_size, info.st_mtime_ns)
     except FileNotFoundError:
-        mtime = 0
+        mtime = (str(path()), 0)
     if _cache["mtime"] != mtime or _cache["data"] is None:
         saved = _read()
         merged = {}
