@@ -49,8 +49,15 @@ Needs a Linux desktop with systemd, Python 3.10+ and GTK 3 for Python. On Ubuntu
     git clone https://github.com/msverma101/nudgy.git ~/nudgy
     cd ~/nudgy && ./install.sh
 
-The installer checks what's missing, never uses sudo and only writes inside your home folder. Options:
-`--with-whatsapp` (the unofficial bridge, needs Node.js 20+), `--no-shortcut` (no Super+T / Super+Shift+T), `--no-start`.
+The installer checks what's missing, never uses sudo and only writes inside your home folder. It installs the
+`nudgy` package with [pipx](https://pipx.pypa.io) if you have it (`sudo apt install pipx`), otherwise into a
+private environment in `~/.local/share/nudgy/app` (needs `python3-venv`). Options:
+`--with-whatsapp` (the unofficial bridge, needs Node.js 20+), `--no-shortcut` (no Super+T / Super+Shift+T),
+`--no-start`, and `--editable` (for working on the code: changes in the folder apply without reinstalling).
+After `git pull`, run `./install.sh` again. `nudgy --version` shows what you have.
+
+Without the installer: `pipx install --system-site-packages .` gives you the `nudgy` command (the system
+GTK packages above are still needed; Nudgy has no other dependencies).
 Then connect the accounts you want (below). Each is optional.
 
 To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstall.sh --purge` (deletes them too).
@@ -325,7 +332,10 @@ Always-on-top needs an X11 session. On Wayland GNOME ignores it.
 
 Your data is in `~/.local/share/nudgy/state.json`, your Google token in `~/.config/nudgy/token.json`.
 
-Tests: `python3 -m unittest discover -s tests -t .`
+If something doesn't work, the log says what failed: `journalctl --user -u nudgy`.
+
+Tests: `python3 -m unittest discover -s tests -t .` Checks used in CI: `uvx ruff check nudgy tests tools`,
+`uvx mypy nudgy`, and for the Android app `cd android && ./gradlew testDebugUnitTest assembleDebug`.
 
 ## Licence
 
