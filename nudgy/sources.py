@@ -78,7 +78,11 @@ def status() -> dict[str, str]:
     """One line per service for the Accounts window and `nudgy accounts`."""
     signed_in = google.token_path().exists()
     has_client = google.client_path().exists()
+    from . import ai
+    claude = {"api": "Connected (your API key)", "claude-code": "Connected (Claude Code login)"}.get(
+        ai.claude_connected(), "Not connected: everything stays on this computer")
     return {
+        "anthropic": claude,
         "google": "Signed in" if signed_in else "Signed out" if has_client else "Not set up",
         "linkedin": "Through Gmail" if signed_in else "Needs Google",
         "luma": "Connected" if luma.feed_url() else "Not connected",

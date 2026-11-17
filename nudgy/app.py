@@ -33,7 +33,8 @@ AUTO_CLOSE = 8          # seconds the open list may sit unused before it closes
 WIDTH, HEIGHT = 340, 520
 SOURCE_LABELS = {"note": "Note", "task": "Task", "calendar": "Calendar", "gmail": "Gmail", "linkedin": "LinkedIn",
                  "google": "Google", "signal": "Signal", "luma": "Luma",
-                 "claude": "Claude", "keep": "Keep", "potential": "Event idea"}
+                 "claude": "Claude", "keep": "Keep", "potential": "Event idea",
+                 "anthropic": "Claude (optional)"}
 # Order of the clusters in the "by source" view.
 DRAG_TARGET = "NUDGY_ITEM"
 LEVEL_FOR_SECTION = {NOW: "high", SOON: "medium", LATER: "low"}
@@ -58,6 +59,11 @@ GOOGLE_STEPS = (
     "user, then choose Publish app.\n"
     "4. Under Clients create a Desktop app client and download its JSON file.\n\n"
     "Then choose that file here. Access is read-only.")
+CLAUDE_STEPS = (
+    "Nudgy runs everything on this computer. If you connect Claude, it is used for writing reply drafts, "
+    "breaking notes into steps and the focus check's unsure cases, and only the text of that one job is sent "
+    "to Anthropic. Talking to the pet always stays here. Paste an API key from the Anthropic Console (it is "
+    "stored only on this computer), or use your Claude Code login.")
 CSS = b"""
 window.nudgy { background-color: #1f2329; color: #e8eaed; }
 .nudgy-head { background-color: #2a2f37; padding: 6px 8px; }
@@ -1147,6 +1153,9 @@ class Window(Gtk.ApplicationWindow):
              self._luma_action(state["luma"])),
             ("signal", "Linked like Signal Desktop. Unread messages, until you read or reply.",
              self._signal_action(state["signal"])),
+            ("anthropic", "Optional. Lets Claude write drafts, break notes into steps and help the focus check, "
+                          "instead of the model on this computer. Talking always stays here.",
+             self._claude_action(state["anthropic"])),
         ]
         for line, (key, about, action) in enumerate(rows):
             name = Gtk.Label(xalign=0)
@@ -1247,6 +1256,54 @@ class Window(Gtk.ApplicationWindow):
         luma.forget_feed()
         self.store.synced.pop("luma", None)
         self._changed()
+        self._fill_accounts()
+
+    def _claude_action(self, state: str):
+        if state.startswith("Connected"):
+            return "Disconnect", "Stop using Claude; everything runs on this computer again", self._claude_disconnect
+        return "Connect…", "Use your Anthropic API key or Claude Code login", self._claude_connect
+
+    def _claude_connect(self) -> None:
+        from . import ai, settings
+        dialog = Gtk.Dialog(title="Connect Claude (optional)", transient_for=self, modal=True)
+        dialog.set_keep_above(True)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Connect", Gtk.ResponseType.OK)
+        if ai.claude_code():
+            dialog.add_button("Use my Claude Code login", Gtk.ResponseType.APPLY)
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        area = dialog.get_content_area()
+        area.add(Gtk.Label(label=CLAUDE_STEPS, wrap=True, max_width_chars=48, xalign=0, margin=10))
+        area.add(Gtk.LinkButton(uri="https://console.anthropic.com/settings/keys", label="Get an API key"))
+        entry = Gtk.Entry(placeholder_text="sk-ant-…", activates_default=True, width_chars=48, margin=10,
+                          visibility=False)
+        area.add(entry)
+        dialog.show_all()
+        response, key = dialog.run(), entry.get_text()
+        dialog.destroy()
+        if response == Gtk.ResponseType.APPLY:
+            settings.update("ai", {"claude": "claude-code"})
+            self._fill_accounts()
+            return
+        if response != Gtk.ResponseType.OK:
+            return
+        try:
+            ai.save_key(key)
+        except ValueError as error:
+            self._message(str(error), Gtk.MessageType.WARNING)
+            return
+
+        def connect() -> None:
+            try:
+                import anthropic  # noqa: F401
+            except ImportError:
+                ai.install_library()          # Anthropic's library, only needed for API keys
+            settings.update("ai", {"claude": "api"})
+        self._background(connect, lambda error: self._after_account_change(error, "Connecting Claude"))
+
+    def _claude_disconnect(self) -> None:
+        from . import ai, settings
+        ai.forget_key()
+        settings.update("ai", {"claude": ""})
         self._fill_accounts()
 
     def _signal_action(self, state: str):

@@ -32,10 +32,10 @@ Click **👤** in the top bar to sign in to Google and link Signal. Every servic
 read-only: Nudgy cannot change or send anything, and sends no read receipts. Ticking off a Google item only
 hides it on this laptop. Every minute Nudgy asks each source whether anything new arrived (Gmail, Tasks, Calendar,
 your notes folder; Signal every 2 minutes) and fetches only those right away; everything is
-fetched in full once an hour. ↻ fetches everything now. Once an hour, or right after ↻, Claude turns
+fetched in full once an hour. ↻ fetches everything now. Once an hour, or right after ↻, the local model turns
 new long jotted notes (Keep notes in Google Tasks, your own notes) into 2–5 concrete ✦ steps under
-them; remove any with ×. This is **off by default** because it sends those notes to Claude; turn it on
-with `"digest": {"enabled": true}` in [settings](#settings) (needs Claude Code installed and signed in).
+them; remove any with ×. This is **off by default**; turn it on with `"digest": {"enabled": true}` in
+[settings](#settings) (needs [Ollama](https://ollama.com); see [Local models](#local-models-and-optional-claude)).
 
 **Limits.** Keep notes without a reminder do not appear, because Google offers no Keep API for
 personal accounts. LinkedIn items appear only if LinkedIn emails you about them.
@@ -65,9 +65,9 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 
 - **No telemetry, no Nudgy server.** Nudgy never reports anything about you or how you use it. It talks
   only to the services you connect (Google, Luma, Signal, public event feeds you enable), to
-  Ollama on your own computer, and, only if you turn on a Claude feature, to Anthropic through your own
-  Claude Code login. When it runs `claude` it switches off Claude Code's usage statistics, error reports
-  and update checks, so only the request itself is sent.
+  Ollama on your own computer, and **only if you connect Claude**, to Anthropic (with your own API key or
+  Claude Code login). Without that, no text ever goes to an AI service. When it runs `claude` it switches
+  off Claude Code's usage statistics, error reports and update checks, so only the request itself is sent.
 - **Your data stays on your computer**, in `~/.config/nudgy` and `~/.local/share/nudgy`; only your user
   can read them (folders 700, files 600). Sign-in tokens are stored there too.
 - **Read-only by default.** It never sends, deletes or marks anything read on Google or Signal.
@@ -83,11 +83,13 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
   messages, event listings). Nudgy treats it as data:
   - the local model's choices only count when *your own words* asked for that kind of change and named
     the item; adding to Google only happens from what you said, never from the model;
-  - Claude (drafts, steps, focus check) runs with no tools, no plugins and no settings, so text it reads
-    can't make it run anything; message text is passed as text to answer, not instructions;
+  - the models that write drafts and steps (local, or Claude if you connected it) get no tools, plugins
+    or settings, so text they read can't make them run anything; message text is passed as text to
+    answer, not instructions;
   - links from outside open only if they're `https://`; links that open things on your computer
     (`file://`, `obsidian://`, resuming a Claude session) work only for your own notes.
-- **AI features are off until you turn them on**: the focus check, note steps, talking, and Claude.
+- **AI features are off until you turn them on**: the focus check, note steps and talking all use a local
+  model; Claude is used only if you connect it, and only for the jobs you allow.
 - **Pinned downloads.** The voice packages are installed at exact versions, and Ollama verifies its
   models by checksum.
 - **No unofficial access.** Every source uses an official API, a feed or link the service offers, or
@@ -116,9 +118,9 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
   separate item to take it back out. Ctrl+Z undoes either.
 - **Focus check (off by default; right-click the pet to turn it on).** Every 3 minutes the pet reads the title of the window in front (no screenshots,
   no keys) and, when something is urgent and you've stayed on one window, judges whether it helps:
-  rules first (task words in the title, work apps), then the local model in Ollama (`qwen3:8b`, which
-  may look up one unfamiliar term on Wikipedia), and only if that is unsure, Claude Haiku through
-  your Claude Code login (at most 20 times a day, about 1,000 tokens each). If you're drifting it
+  rules first (task words in the title, work apps), then the local model (which may look up one
+  unfamiliar term on Wikipedia), and only if that is unsure and you [connected Claude](#local-models-and-optional-claude),
+  Claude (at most 20 times a day, about 1,000 tokens each). If you're drifting it
   side-eyes and asks, then sulks after 10 minutes, then walks to the middle of the screen and turns
   its back after 15 more (5 and 8 when something is overdue). "Yes, it is" trusts that window for an
   hour. Nothing urgent means no judging. Settings: the `focus` section of [settings](#settings) (work apps,
@@ -209,16 +211,16 @@ Click it while it talks to stop it. It understands English and German.
 | Undo | "undo that" (or the Undo button in the bubble) |
 | Focus | "focus on the slides for 25 minutes" (a ring around the pet counts down), "stop the timer", "turn the focus check off" |
 | Controls | "sync now", "open the interview email", "show me the list", "hide" |
-| With Claude* | "break the slides into steps", "draft a reply to the interview email saying Tuesday works" |
+| Write | "break the slides into steps", "draft a reply to the interview email saying Tuesday works", "write back to Mia that I'm running late" |
 | Google* | "add call the dentist on Friday to my Google Tasks", "put lunch with Mia tomorrow at 1pm in my calendar" |
 
 Questions about the list are answered straight from it, so they're instant and exact; the local model is only
 used to work out what you want done and to chat. Moving a Google item only hides it here until then (Nudgy
 reads Google; it doesn't change it), while your own notes really move.
 
-\* **Claude** (drafting, breaking into steps) is off until you set `"voice": {"claude": true}` in [settings](#settings);
-it gets the item's title (and the email's text, for a draft) and no tools. Drafts open in a window you edit;
-"Open in Gmail" fills in a reply for you to send: Nudgy never sends anything.
+**Writing** (drafts, steps) uses the local model, or Claude if you connected it; it gets the item's title (and
+the email's text, for a draft). Drafts open in a window you edit; "Open in Gmail" fills in a reply for you
+to send: Nudgy never sends anything.
 **Google**: the first time you ask, Nudgy asks for permission to add to your Calendar and Tasks, in a separate
 sign-in, so your read-only one stays read-only. Everything it adds has an Undo button.
 
@@ -227,21 +229,45 @@ Everything runs on your laptop with free, open-source models; nothing is sent an
 | Step | Model | Licence | On a mid-range laptop |
 | --- | --- | --- | --- |
 | Hear | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `base` (CPU, int8) | MIT | ~1.5 s for a sentence |
-| Think | [Qwen3 4B](https://ollama.com/library/qwen3) through [Ollama](https://ollama.com) | Apache 2.0 | ~3–4 s (fits a 4 GB GPU) |
+| Think | [Qwen3.5](https://ollama.com/library/qwen3.5) (size picked for your computer) through [Ollama](https://ollama.com) | Apache 2.0 | ~5 s with 4B on a 4 GB GPU |
 | Speak | [Piper](https://github.com/rhasspy/piper) voices | MIT | ~0.1 s |
 
 Set it up once (about 3.5 GB of downloads, into `~/.local/share/nudgy/voice`). You need
 [Ollama](https://ollama.com) for the thinking part, and `sudo apt install python3-venv` unless you have
 [uv](https://docs.astral.sh/uv/):
 
-    nudgy voice setup        # speech libraries in their own folder, Whisper, two voices, qwen3:4b
+    nudgy voice setup        # speech libraries in their own folder, Whisper, two voices, the local model
     nudgy voice test         # say one sentence and see how long each step takes
     nudgy voice ask "what's next?"   # try the thinking part by typing
 
 The models load while you're still talking and are let go after a few quiet minutes. Change models or
-voices in the `voice` section of [settings](#settings) (for example `"microphone": "laptop"` to never use a headset mic, `"whisper": "small"` hears better but is slower, or
-`"model": "qwen3:1.7b"` for laptops without a GPU). Audio is never saved: each recording goes to a private
+voices in the `voice` section of [settings](#settings) (for example `"microphone": "laptop"` to never use a
+headset mic, or `"whisper": "small"`, which hears better but is slower). Audio is never saved: each recording goes to a private
 temporary file that's deleted right after it's transcribed.
+
+## Local models and optional Claude
+
+Everything that needs a language model runs **on your computer** through [Ollama](https://ollama.com):
+understanding what you say, reply drafts, breaking notes into steps and the focus check. Nudgy picks the
+best model your computer can run from a small tested list (`nudgy models` shows it):
+
+| Your computer | Model |
+| --- | --- |
+| 8 GB graphics card or more | Qwen3.5 9B |
+| 4 GB graphics card | Qwen3.5 4B |
+| no graphics card | Qwen3.5 2B (0.8B on very small machines) |
+
+`nudgy models use NAME` picks another one (for example `gemma4:e4b`, which writes slightly better drafts
+but is slower), `nudgy models use auto` goes back. How the models compare on Nudgy's own tasks:
+[docs/models.md](docs/models.md).
+
+**Claude is optional.** `nudgy claude connect` (or Accounts > Claude) lets Claude do the writing jobs:
+drafts, steps and the focus check's unsure cases (choose which with `ai.claude_for`). Use an API key from
+the [Anthropic Console](https://console.anthropic.com/settings/keys) (Nudgy then installs Anthropic's Python
+library, its only optional dependency) or your Claude Code login. Only the text of that one job is sent;
+talking to the pet always stays on your computer. `nudgy claude disconnect` goes back to local only. The
+default Claude model is `claude-opus-5-5`; set `ai.claude_model` to `claude-haiku-5-5` for a much cheaper
+one.
 
 ## Nudgy on your Android phone
 
@@ -312,9 +338,10 @@ are not settings: they stay in their own private files. Sections:
 | `ranking` | `urgent_words` (make mail and chats urgent), `calendar_days`, `mail_days`, `events_days` |
 | `google` | `skip_calendars`: calendar names to leave out |
 | `claude_notes` | `folder` with Markdown checklists (off while empty), `files` (empty: every `.md` in it) |
-| `focus` | the focus check: on/off, interval, work apps, distractions, models, Claude cap, `work_topics` |
-| `voice` | talking: on/off, model, Whisper size, voices, microphone, whether Claude may be used |
-| `digest` | turning long notes into steps with Claude: on/off, model |
+| `ai` | `local_model` (empty: best for this computer), `claude` (not connected unless you connect it), `claude_model`, `claude_for` |
+| `focus` | the focus check: on/off, interval, work apps, distractions, Claude cap, `work_topics` |
+| `voice` | talking: on/off, Whisper size, voices, microphone |
+| `digest` | turning long notes into steps: on/off |
 | `discover` | the event finder: on/off, `home`, `near_km`, sources, `topics`, `big_names`, watchlist |
 | `phone` | `folder` shared with the Android app |
 
@@ -339,6 +366,8 @@ version runs, and the old files are kept as `*.json.migrated`.
     nudgy luma LINK | off               # connect or disconnect Luma
     nudgy list                          # print the list in the terminal
     nudgy talk                          # talk to the pet (Super+Shift+T)
+    nudgy models [use NAME | use auto]  # the local model for this computer
+    nudgy claude connect | disconnect | status   # optional Claude
     nudgy voice setup | on | off | test | ask TEXT
     nudgy phone FOLDER | off            # share the list with the Android app through FOLDER
     systemctl --user stop nudgy         # close until next login

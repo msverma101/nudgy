@@ -6,6 +6,10 @@ nudgy voice setup      install the local speech parts (Whisper, Piper) and the s
 nudgy voice on|off     allow or stop talking to the pet
 nudgy voice test       record one sentence and show what it heard, how long each step took
 nudgy voice ask TEXT   ask the pet something by typing, and print its answer
+nudgy models           the local model for this computer: recommended, installed, and in use
+nudgy models use NAME  use another local model (e.g. qwen3.5:9b); "auto" goes back to the recommended one
+nudgy claude connect   optional: let Claude do drafts, steps and the focus check (API key or Claude Code login)
+nudgy claude disconnect|status
 nudgy focus            today's focus summary (time on task vs drifting)
 nudgy focus test TITLE [APP]   run the focus judges on a window title and show who decided
 nudgy focus on|off     turn the pet's focus check on or off
@@ -46,6 +50,85 @@ def private_folders() -> None:
         for path in folder.glob("*.json"):          # files from older versions may be group-readable
             if path.stat().st_mode & 0o077:
                 path.chmod(0o600)
+
+
+def models_command(rest: list[str]) -> int:
+    from . import models, settings
+    if rest[:1] == ["use"] and len(rest) == 2:
+        settings.update("ai", {"local_model": "" if rest[1] == "auto" else rest[1]})
+        name = models.current()
+        print(f"Nudgy now uses {name}." + ("" if name in models.installed() else f" Fetch it with: ollama pull {name}"))
+        return 0
+    vram, ram = models.gpu_memory_gb(), models.ram_gb()
+    best = models.recommended(vram, ram)
+    have = models.installed()
+    using = models.current()
+    print(f"This computer: {vram:.0f} GB graphics memory, {ram:.0f} GB memory.")
+    print(f"Recommended: {best.name} ({best.note}).")
+    print(f"In use: {using}" + ("" if using in have else "  (not downloaded yet: ollama pull " + using + ")"))
+    print("Catalogue (best first; * = tested on Nudgy's tasks):")
+    for model in models.CATALOGUE:
+        fits = "fits your GPU" if vram >= model.vram_gb else "CPU only" if ram >= model.ram_gb else "too big"
+        mark = "*" if model.tested else " "
+        here = "installed" if model.name in have else ""
+        print(f"  {mark} {model.name:<14} {model.size_gb:>4.1f} GB  {fits:<13} {here}")
+    if not have:
+        print("Ollama isn't running or has no models. Install it from ollama.com.")
+    return 0
+
+
+def claude_command(rest: list[str]) -> int:
+    import getpass
+    from . import ai, settings
+    action = rest[0] if rest else "status"
+    if action == "disconnect":
+        ai.forget_key()
+        settings.update("ai", {"claude": ""})
+        print("Claude disconnected. Everything runs on this computer again.")
+        return 0
+    if action == "status":
+        way = ai.claude_connected()
+        jobs = ", ".join(settings.section("ai")["claude_for"])
+        print({"api": f"Connected with your API key; used for: {jobs}.",
+               "claude-code": f"Connected through your Claude Code login; used for: {jobs}."}.get(
+            way, "Not connected: everything runs on this computer."))
+        return 0
+    if action != "connect":
+        print("Usage: nudgy claude connect | disconnect | status")
+        return 2
+    print("Claude is optional. Once connected, it writes drafts, breaks notes into steps and helps the focus\n"
+          "check (change which with settings \"ai.claude_for\"); talking always stays on this computer.\n"
+          "Only the text of that one job is sent to Anthropic.")
+    use_code = bool(ai.claude_code()) and input("Use your Claude Code login instead of an API key? [y/N] ")\
+        .strip().lower().startswith("y")
+    if use_code:
+        settings.update("ai", {"claude": "claude-code"})
+        print("Connected through Claude Code.")
+        return 0
+    key = getpass.getpass("Anthropic API key (from console.anthropic.com; not shown): ")
+    try:
+        ai.save_key(key)
+    except ValueError as error:
+        print(error)
+        return 1
+    try:
+        import anthropic  # noqa: F401
+    except ImportError:
+        print("Installing Anthropic's Python library (needed for API keys)...")
+        ai.install_library()
+        import anthropic
+    try:
+        anthropic.Anthropic(api_key=ai.api_key()).models.list(limit=1)     # checks the key, costs nothing
+    except anthropic.AuthenticationError:
+        ai.forget_key()
+        print("Anthropic didn't accept that key. Nothing was saved.")
+        return 1
+    except (anthropic.APIConnectionError, anthropic.APIStatusError) as error:
+        print(f"Couldn't check the key right now ({type(error).__name__}); it's saved, try a draft later.")
+    settings.update("ai", {"claude": "api"})
+    print(f"Connected. Claude ({settings.section('ai')['claude_model']}) will be used for: "
+          f"{', '.join(settings.section('ai')['claude_for'])}.")
+    return 0
 
 
 def voice_command(rest: list[str], moment) -> int:
@@ -128,6 +211,10 @@ def main() -> int:
         return remote({"toggle": "toggle", "open": "open-list", "talk": "talk"}[command])
     if command == "voice":
         return voice_command(sys.argv[2:], moment)
+    if command == "models":
+        return models_command(sys.argv[2:])
+    if command == "claude":
+        return claude_command(sys.argv[2:])
     if command == "focus":
         from . import watch
         rest = sys.argv[2:]
