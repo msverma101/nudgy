@@ -757,6 +757,8 @@ class Pet(Gtk.Window):
         list_window.on_update = self.update
         list_window.on_finish = self.cheer
         list_window.on_hide = self.list_hidden
+        list_window.on_say = lambda text: self.say(text, seconds=12)
+        list_window.on_reopen = self.open_list
         GLib.timeout_add(FRAME_MS, self._frame)
 
     # ---- placement -------------------------------------------------------------------------------

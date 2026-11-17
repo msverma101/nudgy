@@ -144,9 +144,10 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 - Click the coloured dot to cycle priority: high, low, automatic.
 - Items are grouped by where they come from (Notes, Calendar, Luma, Gmail, Signal…), most pressing
   first inside each group. Click a group's heading to fold it. **▤** switches to Now / Soon / Later.
-- **⇅ Re-rank** asks the local model which of your open items need you now, soon or later, with a short
-  reason for each. You see only what would move, untick anything you disagree with, and apply; **↶**
-  undoes it. If the local model's answer looks poor (missing items, nearly everything urgent, no reasons)
+- **⇅ Re-rank** asks the local model to pick, from your 40 most pressing items, the few (at most 5) that
+  need you today and the ones that can clearly wait, each with a short reason. It takes about 20 seconds;
+  the pet tells you when it starts. You see only what would move, untick anything you disagree with, and
+  apply; **↶** undoes it. If the local model's answer looks poor (unreadable, too many for today, no reasons)
   and you [connected Claude](#local-models-and-optional-claude), Claude (Haiku) tries instead. The model
   can only suggest Now, Soon or Later for items already on your list.
 - Click an item to open it where it came from: the email in Gmail, the event in Google Calendar or

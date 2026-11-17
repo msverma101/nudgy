@@ -140,6 +140,9 @@ class Window(Gtk.ApplicationWindow):
         self.accounts_grid = None
         self.pending: str | None = None      # a sync asked for while another was running
         self.on_update = self.on_finish = self.on_hide = None   # the pet listens to these
+        self.on_say = None                                       # (text) -> the pet says it in a bubble
+        self.on_reopen = None                                    # () -> the pet opens the list beside it
+        self.reranking = False
         self._build()
         self._place()
         self.get_child().show_all()          # the window itself opens from the pet
@@ -349,7 +352,7 @@ class Window(Gtk.ApplicationWindow):
 
     def _busy(self) -> bool:
         """Something in the list is in use, so it must not close by itself."""
-        if self.dragging or Gtk.grab_get_current() is not None:        # menus and drags grab
+        if self.reranking or self.dragging or Gtk.grab_get_current() is not None:   # menus, drags grab
             return True
         if self.entry.get_text().strip() or self.search.get_text().strip():
             return True
@@ -941,13 +944,16 @@ class Window(Gtk.ApplicationWindow):
     def rerank(self) -> None:
         """Asks the model for suggestions in the background, then shows them for you to approve."""
         from . import ai, rerank
-        if getattr(self, "reranking", False):
+        if self.reranking:
+            self._tell("Still re-ranking, nearly there.")
             return
         self.reranking = True
         moment = now()
         scored = ranked(self.store.visible(moment), moment, self.store.overrides, self.store.places)
-        self.problem = "Re-ranking with the local model…"
+        count = min(len(scored), rerank.MAX_ITEMS)
+        self.problem = f"Re-ranking {count} items with the local model… (about 20 seconds)"
         self._show_status()
+        self._tell(f"Looking through your {count} most pressing items. Give me about 20 seconds.")
 
         def work():
             result: object
@@ -958,10 +964,23 @@ class Window(Gtk.ApplicationWindow):
             GLib.idle_add(self._reranked, result)
         threading.Thread(target=work, daemon=True).start()
 
+    def reopen(self) -> None:
+        """Opens the list next to the pet (the pet sets this up; on its own, just shows the window)."""
+        if self.on_reopen:
+            self.on_reopen()
+        else:
+            self.show_list()
+
+    def _tell(self, text: str) -> None:
+        if self.on_say:
+            self.on_say(text)
+
     def _reranked(self, result) -> bool:
         self.reranking = False
         self.problem = ""
         self._show_status()
+        if not self.get_visible():                # it may have been closed meanwhile: bring it back
+            self.reopen()
         if isinstance(result, Exception):
             self._message(f"Re-ranking didn't work: {result}", Gtk.MessageType.WARNING)
             return False

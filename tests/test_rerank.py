@@ -11,30 +11,29 @@ SCORED = [(Item(id=f"note:{n}", source="note", title=f"Item {n}"), value)
           for n, value in enumerate([85, 60, 60, 40, 40, 40, 40, 40], 1)]       # 1 Now, 2 Soon, 5 Later
 
 
-def answer(sections, reason="because"):
-    return json.dumps({"items": [{"n": n, "section": s, "reason": reason} for n, s in enumerate(sections, 1)]})
+def answer(now=(), later=(), reason="because"):
+    return json.dumps({"now": [{"n": n, "r": reason} for n in now], "later": [{"n": n, "r": reason} for n in later]})
 
 
 class ParseTest(unittest.TestCase):
-    def test_only_known_items_and_sections(self):
-        text = json.dumps({"items": [{"n": 1, "section": "later", "reason": "x"}, {"n": 99, "section": "now"},
-                                     {"n": 2, "section": "delete everything"}, {"n": "x", "section": "now"}]})
+    def test_only_known_items(self):
+        text = json.dumps({"now": [{"n": 3, "r": "today"}, {"n": 99, "r": "x"}, {"n": "x"}, "junk"],
+                           "later": [{"n": 1, "r": "info"}, {"n": 3, "r": "dup"}], "delete": [{"n": 2}]})
         found = rerank.parse(text, SCORED)
-        self.assertEqual([(s.item.id, s.current, s.section) for s in found], [("note:1", NOW, LATER)])
+        self.assertEqual([(s.item.id, s.current, s.section, s.reason) for s in found],
+                         [("note:1", NOW, LATER, "info"), ("note:3", SOON, NOW, "today")])
 
     def test_broken_answer(self):
-        self.assertEqual(rerank.parse("sure! here you go", SCORED), [])
+        self.assertEqual(rerank.check("sure! here you go", SCORED), ([], "its answer couldn't be read"))
+        self.assertEqual(rerank.parse('{"now": "everything"}', SCORED), [])
 
 
 class QualityTest(unittest.TestCase):
     def test_checks(self):
-        good = rerank.parse(answer(["now", "soon", "soon", "later", "later", "later", "later", "later"]), SCORED)
-        self.assertEqual(rerank.good_enough(good, 8), "")
-        self.assertIn("only ranked", rerank.good_enough(good[:3], 8))
-        all_now = rerank.parse(answer(["now"] * 8), SCORED)
-        self.assertIn("in Now", rerank.good_enough(all_now, 8))
-        no_reasons = rerank.parse(answer(["later"] * 8, reason=""), SCORED)
-        self.assertIn("reasons", rerank.good_enough(no_reasons, 8))
+        self.assertEqual(rerank.good_enough(rerank.parse(answer(now=[2, 3], later=[4]), SCORED), 8), "")
+        self.assertEqual(rerank.good_enough([], 8), "")                       # nothing to move is fine
+        self.assertIn("in Now", rerank.good_enough(rerank.parse(answer(now=range(1, 8)), SCORED), 8))
+        self.assertIn("reasons", rerank.good_enough(rerank.parse(answer(now=[2], reason=""), SCORED), 8))
 
 
 class SuggestTest(unittest.TestCase):
@@ -43,8 +42,7 @@ class SuggestTest(unittest.TestCase):
         ai.forget_key()
 
     def test_only_changes_are_suggested(self):
-        sections = ["now", "soon", "now", "later", "later", "later", "later", "later"]    # item 3: Soon -> Now
-        with mock.patch.object(ai, "local", return_value=ai.Answer(answer(sections))):
+        with mock.patch.object(ai, "local", return_value=ai.Answer(answer(now=[1, 3], later=[8]))):  # 1, 8 stay
             suggestions, by, note = rerank.suggest(SCORED, NOW_T)
         self.assertEqual([(s.item.id, s.current, s.section) for s in suggestions], [("note:3", SOON, NOW)])
         self.assertEqual(by, "local")
@@ -53,19 +51,19 @@ class SuggestTest(unittest.TestCase):
     def test_poor_local_answer_goes_to_claude_when_connected(self):
         ai.save_key("sk-ant-test")
         settings.update("ai", {"claude": "api"})
-        good = answer(["later", "soon", "soon", "later", "later", "later", "later", "later"])
-        with mock.patch.object(ai, "local", return_value=ai.Answer(answer(["now"] * 8))), \
+        good = answer(later=[1])
+        with mock.patch.object(ai, "local", return_value=ai.Answer(answer(now=range(1, 9)))), \
                 mock.patch.object(ai, "claude", return_value=ai.Answer(good, 10, "claude")) as asked:
             suggestions, by, _note = rerank.suggest(SCORED, NOW_T)
         asked.assert_called_once()
         self.assertEqual((by, [s.item.id for s in suggestions]), ("claude", ["note:1"]))
 
     def test_poor_local_answer_without_claude_is_flagged(self):
-        with mock.patch.object(ai, "local", return_value=ai.Answer(answer(["now"] * 8))), \
+        with mock.patch.object(ai, "local", return_value=ai.Answer(answer(now=range(1, 9)))), \
                 mock.patch.object(ai, "claude", side_effect=AssertionError("not connected")):
             _suggestions, by, note = rerank.suggest(SCORED, NOW_T)
         self.assertEqual(by, "local")
-        self.assertIn("Check them carefully", note)
+        self.assertIn("Check these carefully", note)
 
     def test_no_model_at_all(self):
         with mock.patch.object(ai, "local", side_effect=ai.Unavailable("Ollama isn't running")):
