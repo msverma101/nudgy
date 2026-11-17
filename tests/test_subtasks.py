@@ -98,3 +98,15 @@ class LinkSafetyTest(unittest.TestCase):
                  ("gmail", "https://mail.google.com/x", True), ("task", "", True)]
         for source, url, expected in cases:
             self.assertEqual(_trusted_link(Item(id="x", source=source, title="t", url=url)), expected, (source, url))
+
+
+class EdgeScrollTest(unittest.TestCase):
+    def test_scrolls_near_the_edges_only(self):
+        from nudgy.app import Window
+        speed = Window.edge_speed
+        self.assertEqual(speed(200, 400), 0.0)                     # middle: no scrolling
+        self.assertLess(speed(10, 400), 0)                         # near the top: up
+        self.assertGreater(speed(395, 400), 0)                     # near the bottom: down
+        self.assertLess(speed(0, 400), speed(40, 400))             # faster right at the edge
+        self.assertEqual(speed(-30, 400), speed(0, 400))           # past the edge: no faster than at it
+        self.assertEqual(speed(60, 100), 0.0)                      # small list: a smaller zone

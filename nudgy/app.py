@@ -212,6 +212,15 @@ class Window(Gtk.ApplicationWindow):
         self.rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         scroller.add(self.rows)
         self.body.pack_start(scroller, True, True, 0)
+        self.scroller = scroller
+        self.scroll_speed = 0.0
+        self.scroll_timer = 0
+        # Dragging an item near the top or bottom edge scrolls the list. The scroller listens too, so it
+        # also works over headings and gaps, where no list takes drops.
+        edge = Gtk.TargetEntry.new(DRAG_TARGET, Gtk.TargetFlags.SAME_APP, 0)
+        scroller.drag_dest_set(0, [edge], Gdk.DragAction.MOVE)
+        scroller.connect("drag-motion", lambda w, _c, _x, y, _t: self._edge_scroll(y) and False)
+        scroller.connect("drag-leave", lambda *_: self._stop_edge_scroll())
         self.entry = Gtk.Entry(placeholder_text="Add a note… (! = high, today, tomorrow)")
         self.entry.get_style_context().add_class("nudgy-entry")
         self.entry.connect("activate", self._add)
@@ -396,7 +405,38 @@ class Window(Gtk.ApplicationWindow):
         zone = self.drop_zone(allocation.y, allocation.height, y)
         return row.get_index() + (1 if zone == "after" else 0), zone
 
-    def _drag_motion(self, listing, _context, _x, y, _time, entries: list) -> bool:
+    @staticmethod
+    def edge_speed(y: float, height: float, zone: float = 48, fastest: float = 14) -> float:
+        """Pixels to scroll per tick while dragging: negative near the top, positive near the bottom,
+        faster the closer to the edge, 0 elsewhere."""
+        zone = min(zone, height / 5)            # a short list keeps most of its height still
+        if y < zone:
+            return -fastest * (zone - max(y, 0)) / zone
+        if y > height - zone:
+            return fastest * (min(y, height) - (height - zone)) / zone
+        return 0.0
+
+    def _edge_scroll(self, y: float) -> None:
+        self.scroll_speed = self.edge_speed(y, self.scroller.get_allocated_height())
+        if self.scroll_speed and not self.scroll_timer:
+            self.scroll_timer = GLib.timeout_add(30, self._scroll_tick)
+
+    def _scroll_tick(self) -> bool:
+        if not self.dragging or not self.scroll_speed:
+            self.scroll_timer = 0
+            return False
+        adjustment = self.scroller.get_vadjustment()
+        top = adjustment.get_upper() - adjustment.get_page_size()
+        adjustment.set_value(min(max(adjustment.get_value() + self.scroll_speed, 0), top))
+        return True
+
+    def _stop_edge_scroll(self) -> None:
+        self.scroll_speed = 0.0
+
+    def _drag_motion(self, listing, _context, x, y, _time, entries: list) -> bool:
+        where = listing.translate_coordinates(self.scroller, x, y)
+        if where:
+            self._edge_scroll(where[1])
         row = listing.get_row_at_y(y)
         if row:
             listing.drag_highlight_row(row)
@@ -510,7 +550,7 @@ class Window(Gtk.ApplicationWindow):
         handle.connect("drag-data-get", lambda _w, _c, data, _i, _t: data.set(data.get_target(), 8,
                                                                               item.id.encode()))
         handle.connect("drag-begin", lambda w, context: self._drag_started(row, context))
-        handle.connect("drag-end", lambda *_: setattr(self, "dragging", False))
+        handle.connect("drag-end", lambda *_: (setattr(self, "dragging", False), self._stop_edge_scroll()))
         handle.connect("realize", lambda w: w.get_window().set_cursor(
             Gdk.Cursor.new_from_name(w.get_display(), "grab")))
         return handle
