@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest import mock
 
-from nudgy import luma, sources, google, chats
+from nudgy import chats, claude_notes, google, luma, sources
 from nudgy.model import NOW, SOON, Item, bucket, friendly_time, score
 
 CET = timezone(timedelta(hours=1))
@@ -121,7 +121,7 @@ class Feed(unittest.TestCase):
         calendar = [Item("calendar:x", "calendar", "BIG HARBOUR HACK", due="2026-11-11T12:30:00+01:00")]
         with mock.patch.object(google, "sync_all", return_value=({"calendar": calendar}, {})), \
                 mock.patch.object(chats, "fetch_signal", return_value=None), \
-                mock.patch.object(sources.claude_notes, "read", return_value=[]), \
+                mock.patch.object(claude_notes, "read", return_value=[]), \
                 mock.patch.object(luma, "fetch_luma", return_value=luma.luma_items(FEED, T)):
             items, errors = sources.sync_all(T)
         self.assertEqual(errors, {})

@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import claude_notes, google
-from .sources import GROUPS as FULL_GROUPS          # one list of sync groups, kept in sources.py
+from .sources import GROUPS as FULL_GROUPS          # one list of sync groups, from the source plugins
 
 log = logging.getLogger(__name__)
 

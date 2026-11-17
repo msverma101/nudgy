@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from nudgy import chats, google, sources
+from nudgy import chats, claude_notes, discover, google, keep, luma, sources
 from nudgy.model import NOW, SOON, LATER, Item, bucket, score
 
 T = datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)
@@ -75,10 +75,10 @@ class Combined(unittest.TestCase):
     def test_unlinked_chats_are_not_errors(self):
         with mock.patch.object(google, "sync_all", return_value=({"gmail": []}, {})), \
                 mock.patch.object(chats, "fetch_signal", side_effect=chats.NotReady("signal-cli not linked")), \
-                mock.patch.object(sources.claude_notes, "read", return_value=[]), \
-                mock.patch.object(sources.luma, "fetch_luma", return_value=None), \
-                mock.patch.object(sources.keep, "fetch_keep", return_value=None), \
-                mock.patch.object(sources.discover, "fetch", return_value=([], [])):
+                mock.patch.object(claude_notes, "read", return_value=[]), \
+                mock.patch.object(luma, "fetch_luma", return_value=None), \
+                mock.patch.object(keep, "fetch_keep", return_value=None), \
+                mock.patch.object(discover, "fetch", return_value=([], [])):
             items, errors = sources.sync_all(T)
         self.assertEqual(items, {"gmail": [], "claude": [], "potential": []})
         self.assertEqual(errors, {"signal": "signal-cli not linked"})

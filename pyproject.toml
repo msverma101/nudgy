@@ -25,7 +25,7 @@ nudgy = "nudgy.__main__:main"
 Homepage = "https://github.com/msverma101/nudgy"
 
 [tool.setuptools]
-packages = ["nudgy"]
+packages = ["nudgy", "nudgy.sources"]
 
 [tool.setuptools.dynamic]
 version = { attr = "nudgy.__version__" }

@@ -7,7 +7,7 @@ import urllib.error
 from datetime import datetime, timezone
 from unittest import mock
 
-from nudgy import keep, sources, google, chats, luma
+from nudgy import chats, claude_notes, google, keep, luma, sources
 from nudgy.model import NOW, SOON, LATER, bucket, score
 
 T = datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)
@@ -95,7 +95,7 @@ class Access(unittest.TestCase):
             with mock.patch.object(google, "sync_all", return_value=({}, {})), \
                     mock.patch.object(chats, "fetch_signal", return_value=None), \
                     mock.patch.object(luma, "fetch_luma", return_value=None), \
-                    mock.patch.object(sources.claude_notes, "read", return_value=[]), \
+                    mock.patch.object(claude_notes, "read", return_value=[]), \
                     mock.patch.object(keep, "list_notes", side_effect=keep.KeepRefused("403 nope")):
                 items, errors = sources.sync_all(T)
             self.assertEqual(errors, {"keep": "403 nope"})
