@@ -62,13 +62,14 @@ class Reading(unittest.TestCase):
         self.assertIsNone(due["Retry linking Signal"])            # "fixed 11 Nov" is the past
         self.assertEqual(due["Apply for the roboti"], "2026-11-21")
         self.assertEqual(due["Pottery course phase"], "2027-01-25")
-        self.assertEqual(due["Sat 7 Nov 2026: Team"], "2026-11-07")   # deadline file: overdue stays
-        self.assertEqual(due["Sun 22 Nov 2026, 11:"], "2026-11-22")
+        self.assertEqual(due["Team pitch."], "2026-11-07")   # deadline file: overdue stays
+        self.assertEqual(due["Sign-up closes."], "2026-11-22")
+        self.assertEqual(self.items["Team pitch."].detail.split(" · ")[0], "Sat 7 Nov 2026")   # label below
 
     def test_ranking(self):
         level = {k: bucket(score(i, T)) for k, i in self.items.items()}
         self.assertEqual(level["URGENT (event starts"], NOW)
-        self.assertEqual(level["Sat 7 Nov 2026: Team"], NOW)
+        self.assertEqual(level["Team pitch."], NOW)
         self.assertEqual(level["Apply for the roboti"], SOON)
         self.assertEqual(level["Watch the video."], LATER)
         self.assertGreater(score(self.items["Watch the video."], T), score(self.items["Resume: Example_proj"], T))
@@ -112,3 +113,15 @@ class Reading(unittest.TestCase):
         start = argv.index("gnome-terminal")      # may be wrapped in its own systemd scope
         self.assertEqual(argv[start:start + 2], ["gnome-terminal", "--working-directory=/tmp"])
         self.assertIn("--resume 11111111-2222-4333-8444-555555555555", argv[-1])
+
+
+class LabelTest(unittest.TestCase):
+    def test_bold_label_moves_below_the_task(self):
+        from nudgy.claude_notes import split_label
+        self.assertEqual(split_label("**Sun 22 Nov 2026, 11:59 PM PT (Mon 23 Nov):** Sign-up closes."),
+                         ("Sign-up closes.", "Sun 22 Nov 2026, 11:59 PM PT (Mon 23 Nov)"))
+        self.assertEqual(split_label("**UK (in person)**: Acme, Globex"),
+                         ("UK (in person): Acme, Globex", ""))                # a name stays in the title
+        self.assertEqual(split_label("**Fri 4 - Sun 6 Dec:** Team offsite"), ("Team offsite", "Fri 4 - Sun 6 Dec"))
+        self.assertEqual(split_label("Plain **bold** line"), ("Plain bold line", ""))
+        self.assertEqual(split_label("**Only bold**"), ("Only bold", ""))
