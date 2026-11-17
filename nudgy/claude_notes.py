@@ -43,6 +43,20 @@ def _plain(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+STARTS_WITH_DATE = re.compile(r"((mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+)?\d{1,2}\b", re.I)
+LABEL = re.compile(r"^\*\*(?P<label>[^*]+?):?\*\*:?\s+(?P<rest>.+)$")
+
+
+def split_label(text: str) -> tuple[str, str]:
+    """(title, label). A line that opens with a bold date ("**Sun 22 Nov, 11:59 PM PT:** Sign-up
+    closes") puts the task first and the date below it; the date still sets when it's due."""
+    found = LABEL.match(text)
+    if not found or len(_plain(found.group("rest"))) < 4 or not (
+            STARTS_WITH_DATE.match(found.group("label")) and DATE.search(found.group("label"))):
+        return _plain(text), ""          # a name ("Example Fellowship:") belongs in the title
+    return _plain(found.group("rest")), _plain(found.group("label")).rstrip(":")
+
+
 def _dates(text: str, today: date) -> list[date]:
     found = []
     for match in DATE.finditer(text):
@@ -138,10 +152,11 @@ def read(now: datetime, base: Path | None = None) -> list[Item]:
                                   url=f"resume:{resume.group(1)}|{resume.group(2)}" if resume else file_url,
                                   tags=["handoff"]))
                 continue
-            plain = _plain(text)
+            title, label = split_label(text)
             link = LINK.search(text)
             tags = ["urgent"] if URGENT.search(text) else []
-            items.append(Item(id=item_id, source="claude", title=plain, detail=section,
+            items.append(Item(id=item_id, source="claude", title=title,
+                              detail=f"{label} · {section}" if label and section else label or section,
                               due=_due(text, today, is_deadlines(path)),
                               url=link.group(0).rstrip(".,") if link else file_url, tags=tags))
     return items
