@@ -266,8 +266,8 @@ drafts, steps and the focus check's unsure cases (choose which with `ai.claude_f
 the [Anthropic Console](https://console.anthropic.com/settings/keys) (Nudgy then installs Anthropic's Python
 library, its only optional dependency) or your Claude Code login. Only the text of that one job is sent;
 talking to the pet always stays on your computer. `nudgy claude disconnect` goes back to local only. The
-default Claude model is `claude-opus-5-5`; set `ai.claude_model` to `claude-haiku-5-5` for a much cheaper
-one.
+default Claude model is `claude-haiku-5-5` (about $0.10 / $0.50 per million tokens in and out, a fraction of
+a cent per draft); set `ai.claude_model` to `claude-opus-5-5` for better writing at about 40× the price.
 
 ## Nudgy on your Android phone
 

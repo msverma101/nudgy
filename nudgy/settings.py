@@ -45,7 +45,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "ollama_url": "http://127.0.0.1:11434",
         "claude": "",                 # "": not connected; "api": your Anthropic API key; "claude-code": your
                                       # Claude Code login. Connect with `nudgy claude connect`.
-        "claude_model": "claude-opus-5-5",
+        "claude_model": "claude-haiku-5-5",      # plenty for short drafts and steps; "claude-opus-5-5" writes better
         "claude_for": ["draft", "steps", "focus"],   # which jobs use Claude once it's connected
     },
     # The focus check: judges the active window's title against what's urgent. Sends titles to a model.
