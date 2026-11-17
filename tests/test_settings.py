@@ -48,7 +48,7 @@ class SettingsTest(unittest.TestCase):
         saved = json.loads(settings.path().read_text())
         self.assertEqual(saved, {"voice": {"enabled": True}, "phone": {"folder": "~/Sync"}})
         self.assertEqual(settings.path().stat().st_mode & 0o777, 0o600)
-        self.assertEqual(settings.section("voice")["model"], "qwen3:4b")       # defaults still filled in
+        self.assertEqual(settings.section("voice")["whisper"], "base")         # defaults still filled in
 
     def test_wrong_types_fall_back_to_defaults(self):
         settings.update("focus", {"enabled": "yes", "interval_seconds": True, "unsure_below": 1})

@@ -1,4 +1,5 @@
-"""Turns long jotted notes into concrete steps, using Claude once an hour (or when you press ↻).
+"""Turns long jotted notes into concrete steps once an hour (or when you press ↻), with the local model
+(or Claude, if you connected it for "steps").
 
 Notes you jot at events (in Keep, which become Google Tasks, or as Nudgy notes) are often a pile
 of names, links and ideas without anything to do. For each new one, Claude suggests 2 to 5 steps you
@@ -14,13 +15,12 @@ from typing import Any
 import hashlib
 import json
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
 
 from . import settings as prefs
-from .model import Item, data_dir, quiet_claude_env
+from .model import Item, data_dir
 
 EVERY = 3600
 SOURCES = ("task", "keep", "note")
@@ -107,25 +107,22 @@ def parse(text: str, wanted: set[str]) -> dict[str, list[dict]]:
     return result
 
 
-def ask_claude(notes: list[Item], model: str) -> tuple[str, int]:
-    """Claude's answer text and the tokens used. Uses your Claude Code login, no tools."""
+def ask_model(notes: list[Item], model: str = "") -> tuple[str, int]:
+    """The model's answer text and the tokens used: the local model, or Claude if you connected it for
+    "steps" (settings "ai.claude_for"). `model` is unused and kept for older callers."""
+    from . import ai
     payload = "\n\n".join(f"id: {n.id}\nnote: {n.title}" for n in notes)
-    claude = shutil.which("claude") or str(Path.home() / ".local/bin/claude")
-    command = [claude, "-p", payload, "--model", model, "--output-format", "json", "--tools", "",
-               "--strict-mcp-config", "--no-session-persistence", "--setting-sources", "",
-               "--system-prompt", SYSTEM]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=180, cwd=str(data_dir()),
-                            env=quiet_claude_env())
-    answer = json.loads(result.stdout)
-    usage = answer.get("usage", {})
-    tokens = sum(usage.get(k, 0) for k in ("input_tokens", "output_tokens", "cache_creation_input_tokens",
-                                           "cache_read_input_tokens"))
-    if answer.get("is_error"):
-        raise RuntimeError(str(answer.get("result", "Claude failed"))[:120])
-    return answer.get("result", ""), tokens
+    try:
+        answer = ai.complete("steps", SYSTEM, payload, json_mode=True)
+    except ai.Unavailable as error:
+        raise RuntimeError(str(error)) from error
+    return answer.text, answer.tokens
 
 
-def run(items: list[Item], steps: dict, ask=ask_claude) -> dict:
+ask_claude = ask_model           # the old name
+
+
+def run(items: list[Item], steps: dict, ask=ask_model) -> dict:
     """Processes new jotted notes. Returns {"steps": {item_id: [step, ...]}, "error": str, "tokens": n}."""
     config = settings()
     if not config["enabled"]:

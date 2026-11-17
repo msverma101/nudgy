@@ -18,8 +18,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
-import subprocess
 import threading
 import time
 import urllib.parse
@@ -29,8 +27,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections.abc import Callable
 
+from . import models
 from . import settings as prefs
-from .model import data_dir, quiet_claude_env
+from .model import data_dir
 
 log = logging.getLogger(__name__)
 
@@ -128,7 +127,8 @@ def _prompt(app: str, title: str, tasks: list[tuple[str, str]], extra: str = "",
 
 
 def ask_local(app: str, title: str, tasks, config: dict, extra: str = "") -> Verdict | None:
-    body = json.dumps({"model": config["local_model"], "stream": False, "think": False, "format": "json",
+    body = json.dumps({"model": config["local_model"] or models.current(), "stream": False, "think": False,
+                       "format": "json",
                        "keep_alive": "2m",            # free the model's ~5 GB soon after the check
                        "options": {"temperature": 0},
                        "messages": [{"role": "system", "content": SYSTEM},
@@ -155,22 +155,15 @@ def wikipedia(term: str) -> str:
 
 
 def ask_claude(app: str, title: str, tasks, config: dict) -> tuple[Verdict | None, int]:
-    """Returns the verdict and the tokens it used."""
-    claude = shutil.which("claude") or str(Path.home() / ".local/bin/claude")
-    command = [claude, "-p", _prompt(app, title, tasks, topics=config["work_topics"]),
-               "--model", config["claude_model"],
-               "--output-format", "json", "--tools", "", "--strict-mcp-config", "--no-session-persistence",
-               "--setting-sources", "", "--system-prompt", SYSTEM]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=90, cwd=str(data_dir()),
-                                env=quiet_claude_env())
-        answer = json.loads(result.stdout)
-    except (OSError, subprocess.TimeoutExpired, ValueError):
+    """Claude's verdict and the tokens it used, if you connected Claude for "focus"; else (None, 0)."""
+    from . import ai
+    if not ai.uses_claude("focus"):
         return None, 0
-    usage = answer.get("usage", {})
-    tokens = sum(usage.get(k, 0) for k in ("input_tokens", "output_tokens", "cache_creation_input_tokens",
-                                           "cache_read_input_tokens"))
-    return parse_verdict(answer.get("result", ""), "claude"), tokens
+    try:
+        answer = ai.claude(SYSTEM, _prompt(app, title, tasks, topics=config["work_topics"]), timeout=90)
+    except ai.Unavailable:
+        return None, 0
+    return parse_verdict(answer.text, "claude"), answer.tokens
 
 
 class Judge:

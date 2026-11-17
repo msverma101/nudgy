@@ -1044,20 +1044,16 @@ class Pet(Gtk.Window):
         GLib.idle_add(show)
 
     def _split(self, item) -> None:
-        """Claude breaks one item into steps (no tools; only the title and details are sent)."""
+        """Breaks one item into steps with the local model (or Claude, if connected for "steps")."""
         from . import digest, voice
-        if not voice.settings().get("claude"):
-            self._later("Breaking things into steps uses Claude, which is off. Turn it on with "
-                        "\"claude\": true in ~/.config/nudgy/voice.json.")
-            return
         try:
-            text, _tokens = digest.ask_claude([item], digest.settings()["model"])
+            text, _tokens = digest.ask_model([item])
             steps = digest.parse(text, {item.id}).get(item.id, [])
         except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
-            self._later(f"Claude couldn't help just now ({str(error)[:80]}).")
+            self._later(f"I couldn't break that down just now ({str(error)[:80]}).")
             return
         if not steps:
-            self._later("Claude didn't find steps for that one.")
+            self._later("I didn't find steps for that one.")
             return
 
         def add():
@@ -1071,12 +1067,9 @@ class Pet(Gtk.Window):
         GLib.idle_add(add)
 
     def _draft(self, item, wish: str) -> None:
-        """Claude drafts a reply; you read, edit and send it yourself. Nudgy never sends anything."""
+        """Drafts a reply (local model, or Claude if connected for "draft"); you read, edit and send it
+        yourself. Nudgy never sends anything."""
         from . import google, voice
-        if not voice.settings().get("claude"):
-            self._later("Drafting uses Claude, which is off. Turn it on with \"claude\": true in "
-                        "~/.config/nudgy/voice.json.")
-            return
         sender, subject, body = item.detail, item.title, ""
         if item.source == "gmail":
             try:

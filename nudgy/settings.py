@@ -39,6 +39,15 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "folder": "",                 # e.g. "~/Documents/Notes"
         "files": [],                  # file names in that folder; empty = every .md file in it
     },
+    # Language models. Everything runs on this computer through Ollama unless you connect Claude.
+    "ai": {
+        "local_model": "",            # empty: the best one for this computer (see models.py, `nudgy models`)
+        "ollama_url": "http://127.0.0.1:11434",
+        "claude": "",                 # "": not connected; "api": your Anthropic API key; "claude-code": your
+                                      # Claude Code login. Connect with `nudgy claude connect`.
+        "claude_model": "claude-opus-5-5",
+        "claude_for": ["draft", "steps", "focus"],   # which jobs use Claude once it's connected
+    },
     # The focus check: judges the active window's title against what's urgent. Sends titles to a model.
     "focus": {
         "enabled": False,
@@ -50,7 +59,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
                       "kdenlive", "davinci", "zotero", "evince", "okular", "nudgy"],
         "distractions": ["youtube", "instagram", "netflix", "reddit", "twitter", " x.com", "/ x", "tiktok",
                          "facebook", "twitch", "9gag", "prime video", "disney+", "spotify"],
-        "local_model": "qwen3:8b",
+        "local_model": "",            # empty: the one from settings "ai" (best for this computer)
         "ollama_url": "http://127.0.0.1:11434",
         "lookups": True,              # let the local model look up one unknown term on Wikipedia
         "claude": True,
@@ -66,12 +75,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # Talking to the pet. Local models; see voice.py.
     "voice": {
         "enabled": False,
-        "model": "qwen3:4b",
+        "model": "",                  # empty: the one from settings "ai" (best for this computer)
         "ollama_url": "http://localhost:11434",
         "whisper": "base",            # "small" hears better but is ~3x slower on a laptop CPU
         "speak": True,
         "max_seconds": 20,
-        "claude": False,              # allow Claude for drafting replies and breaking items into steps
         "microphone": "auto",         # auto: your Bluetooth headset's mic while you wear it, else the laptop's
         "voices": {"en": "en_US-hfc_female-medium", "de": "de_DE-thorsten-medium"},
     },
