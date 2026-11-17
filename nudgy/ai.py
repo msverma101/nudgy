@@ -5,6 +5,7 @@ Every model call goes through complete(job, system, user). The jobs are:
   draft  writing a reply draft for you to edit
   steps  breaking a note into steps
   focus  judging a window title when the local model is unsure (the focus check)
+  rank   re-ranking the list when the local model's answer doesn't pass the check
 
 Connecting Claude is optional, in two ways (settings "ai.claude"):
   "api"          your own Anthropic API key, through Anthropic's Python library (installed on connect)
@@ -29,7 +30,7 @@ from .model import config_dir, data_dir, quiet_claude_env
 
 log = logging.getLogger(__name__)
 
-JOBS = ("talk", "draft", "steps", "focus")
+JOBS = ("talk", "draft", "steps", "focus", "rank")
 
 
 class Unavailable(Exception):

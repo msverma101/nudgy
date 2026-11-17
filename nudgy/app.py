@@ -191,6 +191,8 @@ class Window(Gtk.ApplicationWindow):
         self.undo = self._button("↶", "Undo the last change (Ctrl+Z). Ctrl+Shift+Z redoes", self._undo)
         self.connect("key-press-event", self._key)
         head.pack_end(self._button("↻", "Sync now", lambda *_: self.sync()), False, False, 0)
+        head.pack_end(self._button("⇅", "Re-rank: let the local model suggest what needs you now, soon or later",
+                                   lambda *_: self.rerank()), False, False, 0)
         self.view_button = self._button("▤", "", self._toggle_view)
         head.pack_end(self.view_button, False, False, 0)
         self.focus_button = self._button("◎", "", self._toggle_focus)
@@ -933,6 +935,74 @@ class Window(Gtk.ApplicationWindow):
         else:
             self.store.overrides[item.id] = level
         self._changed()
+
+    # ---- re-ranking with a model --------------------------------------------------------------------
+    def rerank(self) -> None:
+        """Asks the model for suggestions in the background, then shows them for you to approve."""
+        from . import ai, rerank
+        if getattr(self, "reranking", False):
+            return
+        self.reranking = True
+        moment = now()
+        scored = ranked(self.store.visible(moment), moment, self.store.overrides, self.store.places)
+        self.problem = "Re-ranking with the local model…"
+        self._show_status()
+
+        def work():
+            result: object
+            try:
+                result = rerank.suggest(scored, moment)
+            except ai.Unavailable as error:
+                result = error
+            GLib.idle_add(self._reranked, result)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _reranked(self, result) -> bool:
+        self.reranking = False
+        self.problem = ""
+        self._show_status()
+        if isinstance(result, Exception):
+            self._message(f"Re-ranking didn't work: {result}", Gtk.MessageType.WARNING)
+            return False
+        suggestions, _by, note = result
+        if not suggestions:
+            self._message(f"{note} Nothing needs to move.")
+            return False
+        self._approve_ranking(suggestions, note)
+        return False
+
+    def _approve_ranking(self, suggestions, note: str) -> None:
+        dialog = Gtk.Dialog(title="Re-rank", transient_for=self, modal=True)
+        dialog.set_keep_above(True)
+        dialog.set_default_size(460, 420)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Apply ticked", Gtk.ResponseType.OK)
+        area = dialog.get_content_area()
+        area.add(Gtk.Label(label=note + " Untick any you disagree with.", wrap=True, max_width_chars=56,
+                           xalign=0, margin=10))
+        scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=10)
+        ticks = []
+        for suggestion in suggestions:
+            tick = Gtk.CheckButton(active=True)
+            label = Gtk.Label(xalign=0, wrap=True, max_width_chars=50)
+            label.set_text(f"{suggestion.item.title[:80]}\n{suggestion.current} → {suggestion.section}"
+                           + (f": {suggestion.reason}" if suggestion.reason else ""))
+            tick.add(label)
+            box.pack_start(tick, False, False, 0)
+            ticks.append((tick, suggestion))
+        scroll.add(box)
+        area.pack_start(scroll, True, True, 0)
+        dialog.show_all()
+        response = dialog.run()
+        chosen = [s for tick, s in ticks if tick.get_active()]
+        dialog.destroy()
+        if response != Gtk.ResponseType.OK or not chosen:
+            return
+        from . import rerank
+        rerank.apply(self.store.overrides, chosen, now())      # one change for undo, however many move
+        self._changed()
+        self.problem = f"Moved {len(chosen)} item{'s' if len(chosen) != 1 else ''}. ↶ undoes it."
+        self._show_status()
 
     def _cycle(self, item: Item) -> None:
         current = self.store.overrides.get(item.id, "normal")

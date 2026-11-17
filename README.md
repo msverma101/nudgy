@@ -141,6 +141,11 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 - Click the coloured dot to cycle priority: high, low, automatic.
 - Items are grouped by where they come from (Notes, Calendar, Luma, Gmail, Signal…), most pressing
   first inside each group. Click a group's heading to fold it. **▤** switches to Now / Soon / Later.
+- **⇅ Re-rank** asks the local model which of your open items need you now, soon or later, with a short
+  reason for each. You see only what would move, untick anything you disagree with, and apply; **↶**
+  undoes it. If the local model's answer looks poor (missing items, nearly everything urgent, no reasons)
+  and you [connected Claude](#local-models-and-optional-claude), Claude (Haiku) tries instead. The model
+  can only suggest Now, Soon or Later for items already on your list.
 - Click an item to open it where it came from: the email in Gmail, the event in Google Calendar or
   Luma, or the chat in Signal Desktop. **↗** marks items that open something.
   Right-click a note > **Link to an email or page…** to give it a link too.
@@ -210,7 +215,7 @@ Click it while it talks to stop it. It understands English and German.
 | Change | "I finished the poster", "move the dentist to Monday", "remind me about the slides in an hour", "make the slides urgent", "add a step to the poster: laminate it" |
 | Undo | "undo that" (or the Undo button in the bubble) |
 | Focus | "focus on the slides for 25 minutes" (a ring around the pet counts down), "stop the timer", "turn the focus check off" |
-| Controls | "sync now", "open the interview email", "show me the list", "hide" |
+| Controls | "sync now", "re-rank my list", "open the interview email", "show me the list", "hide" |
 | Write | "break the slides into steps", "draft a reply to the interview email saying Tuesday works", "write back to Mia that I'm running late" |
 | Google* | "add call the dentist on Friday to my Google Tasks", "put lunch with Mia tomorrow at 1pm in my calendar" |
 

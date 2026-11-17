@@ -1015,7 +1015,7 @@ class Pet(Gtk.Window):
         return None
 
     def _command(self, reply) -> str | None:
-        commands = {"undo": self.list._undo, "sync": self.list.sync,
+        commands = {"undo": self.list._undo, "sync": self.list.sync, "rerank": self.list.rerank,
                     "hide": lambda: GLib.timeout_add(2500, self.hide_pet),
                     "stop_timer": self.stop_timer}
         if reply.command in commands:

@@ -46,7 +46,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "claude": "",                 # "": not connected; "api": your Anthropic API key; "claude-code": your
                                       # Claude Code login. Connect with `nudgy claude connect`.
         "claude_model": "claude-haiku-5-5",      # plenty for short drafts and steps; "claude-opus-5-5" writes better
-        "claude_for": ["draft", "steps", "focus"],   # which jobs use Claude once it's connected
+        "claude_for": ["draft", "steps", "focus", "rank"],   # which jobs may use Claude once connected
     },
     # The focus check: judges the active window's title against what's urgent. Sends titles to a model.
     "focus": {

@@ -816,6 +816,9 @@ def control(text: str) -> Reply | None:
     words = text.lower().strip(" ?!.")
     if re.match(r"(undo|undo that|take (that|it) back|rückgängig|mach das rückgängig)\b", words):
         return Reply("Undone.", command="undo")
+    if re.search(r"\b(re-?rank|re-?prioriti[sz]e|rearrange|reorder)\b.*\b(list|todos?|tasks?|priorities|items?)\b|"
+                 r"\b(sort|rank) my (list|todos|tasks) by urgency|neu (ordnen|priorisieren)", words):
+        return Reply("Re-ranking your list. I'll show you what I'd move.", command="rerank")
     if re.match(r"(sync|refresh|update)( now| everything| my list)?$|aktualisier|synchronisier", words):
         return Reply("Syncing now.", command="sync")
     if re.match(r"(hide|go away|hide yourself|verschwinde|versteck dich)\b", words):

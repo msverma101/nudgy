@@ -23,7 +23,7 @@ class ModelChoiceTest(unittest.TestCase):
 
 class RoutingTest(unittest.TestCase):
     def tearDown(self):
-        settings.update("ai", {"claude": "", "claude_for": ["draft", "steps", "focus"]})
+        settings.update("ai", {"claude": "", "claude_for": settings.DEFAULTS["ai"]["claude_for"]})
         ai.forget_key()
 
     def answer(self, job):
