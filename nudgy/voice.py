@@ -821,7 +821,7 @@ def control(text: str) -> Reply | None:
         return Reply("Re-ranking your list. I'll show you what I'd move.", command="rerank")
     if re.match(r"(sync|refresh|update)( now| everything| my list)?$|aktualisier|synchronisier", words):
         return Reply("Syncing now.", command="sync")
-    if re.match(r"(hide|go away|hide yourself|verschwinde|versteck dich)\b", words):
+    if re.match(r"(hide( yourself)?|go away|verschwinde|versteck dich)$", words):
         return Reply("Hiding. Press Super+T to bring me back.", command="hide")
     if re.search(r"\b(stop|cancel|end) (the |my )?(timer|focus session|pomodoro)", words):
         return Reply("Timer stopped.", command="stop_timer")
@@ -898,7 +898,7 @@ def think(chat: Chat, text: str, items: list[tuple[Item, str]], moment: datetime
             "options": {"temperature": 0.4, "num_ctx": 4096},
             "messages": [{"role": "system", "content": system}] + chat.messages(text)}
     direct = control(text) or google_intent(text) or reschedule_intent(text, items, moment) or \
-        done_intent(text, items) or draft_intent(text, items)
+        delete_intent(text, items) or done_intent(text, items) or draft_intent(text, items)
     if direct is None:
         answer = lookup(text, items, moment, language) or quick_answer(text, items, moment, language)
         direct = Reply(answer) if answer else None
@@ -959,6 +959,19 @@ DRAFT = re.compile(r"^(?:please\s+|can you\s+|could you\s+)?(?:write back to|rep
                    r"draft (?:a )?(?:reply|response|answer) to|text|message)\s+(?P<who>.+?)"
                    r"(?:\s+(?:saying|that|to say|and say|telling (?:them|her|him))\s+|\s*:\s*)(?P<wish>.+)$", re.I)
 MESSAGE_SOURCES = ("gmail", "signal", "linkedin")
+
+
+DELETE = re.compile(r"^(?:please\s+)?(?:delete|remove|hide|get rid of|lösche?|entferne?)\s+(?:the |my |den |die |das )?"
+                    r"(?P<what>.+?)(?:\s+(?:from|off) (?:my |the )?(?:list|nudgy))?$", re.I)
+
+
+def delete_intent(text: str, items: list[tuple[Item, str]]) -> Reply | None:
+    """'delete the milk note', 'hide the newsletter': gone from the list, without counting as done."""
+    found = DELETE.match(text.strip(" ?!."))
+    if not found:
+        return None
+    item = best_item(found.group("what"), items)
+    return Reply("", action="delete", item=item) if item else None
 
 
 def done_intent(text: str, items: list[tuple[Item, str]]) -> Reply | None:

@@ -110,3 +110,36 @@ class EdgeScrollTest(unittest.TestCase):
         self.assertLess(speed(0, 400), speed(40, 400))             # faster right at the edge
         self.assertEqual(speed(-30, 400), speed(0, 400))           # past the edge: no faster than at it
         self.assertEqual(speed(60, 100), 0.0)                      # small list: a smaller zone
+
+
+class DeleteTest(unittest.TestCase):
+    def test_delete_note_and_hide_synced(self):
+        from datetime import datetime, timezone
+        from nudgy.model import Item, Store
+        moment = datetime(2026, 11, 17, 9, 0, tzinfo=timezone.utc)
+        store = Store.__new__(Store)
+        store.__init__()
+        note = Item(id="note:1", source="note", title="Milk")
+        mail = Item(id="gmail:1", source="gmail", title="Newsletter")
+        store.notes = [note]
+        store.synced = {"gmail": [mail]}
+        before = store.snapshot()
+        store.delete(note, moment)
+        store.delete(mail, moment)
+        self.assertEqual(store.visible(moment), [])
+        self.assertNotIn("gmail:1", store.dismissed)          # hidden, not counted as done
+        store.prune(moment.replace(year=2027))
+        self.assertIn("gmail:1", store.hidden)                # stays hidden while Gmail still has it
+        store.restore(before)                                 # undo brings both back
+        self.assertEqual({i.id for i in store.visible(moment)}, {"note:1", "gmail:1"})
+
+    def test_voice_delete(self):
+        from nudgy import voice
+        from nudgy.model import Item
+        items = [(Item(id="note:1", source="note", title="Buy oat milk"), "today")]
+        reply = voice.delete_intent("delete the oat milk note", items)
+        self.assertEqual((reply.action, reply.item.id), ("delete", "note:1"))
+        self.assertIsNone(voice.delete_intent("I printed the poster", items))
+        self.assertIsNone(voice.control("hide the newsletter"))      # an item, not the pet
+        self.assertEqual(voice.control("hide").command, "hide")
+        self.assertEqual(voice.control("go away").command, "hide")

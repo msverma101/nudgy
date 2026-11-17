@@ -351,7 +351,8 @@ def friendly_time(item: Item, now: datetime) -> str:
 
 
 STATE_VERSION = 2
-STATE_KEYS = ("version", "notes", "synced", "overrides", "dismissed", "steps", "places", "snoozed", "window")
+STATE_KEYS = ("version", "notes", "synced", "overrides", "dismissed", "hidden", "steps", "places", "snoozed",
+              "window")
 
 
 def migrate(raw: dict) -> dict:
@@ -376,7 +377,8 @@ class Store:
         self.notes: list[Item] = []
         self.synced: dict[str, list[Item]] = {}
         self.overrides: dict[str, str] = {}
-        self.dismissed: dict[str, str] = {}
+        self.dismissed: dict[str, str] = {}          # ticked off: done
+        self.hidden: dict[str, str] = {}             # removed from the list without being done
         # Steps are kept by item id, apart from the items, so synced items keep them across syncs.
         self.steps: dict[str, list[dict]] = {}     # id -> [{"text": ..., "done": bool}]
         self.places: dict[str, float] = {}         # id -> position you dragged it to
@@ -403,6 +405,7 @@ class Store:
         self.synced = {k: [Item.from_dict(i) for i in v] for k, v in raw.get("synced", {}).items()}
         self.overrides = raw.get("overrides", {})
         self.dismissed = raw.get("dismissed", {})
+        self.hidden = raw.get("hidden", {})
         self.steps = raw.get("steps", {})
         self.places = raw.get("places", {})
         self.snoozed = raw.get("snoozed", {})
@@ -415,7 +418,8 @@ class Store:
             "version": max(STATE_VERSION, self.file_version),   # never downgrade a newer file's version
             "notes": [asdict(n) for n in self.notes],
             "synced": {k: [asdict(i) for i in v] for k, v in self.synced.items()},
-            "overrides": self.overrides, "dismissed": self.dismissed, "steps": self.steps, "places": self.places,
+            "overrides": self.overrides, "dismissed": self.dismissed, "hidden": self.hidden, "steps": self.steps,
+            "places": self.places,
             "snoozed": self.snoozed, "window": self.window,
         }
         # mkstemp creates the file private, which matters because it holds email subjects.
@@ -428,13 +432,15 @@ class Store:
         """Everything you can change by hand, as text: notes, priorities, ticked items and steps.
         Synced items and window layout are left out, so undo never fights with a sync."""
         return json.dumps({"notes": [asdict(n) for n in self.notes], "overrides": self.overrides,
-                           "dismissed": self.dismissed, "steps": self.steps, "places": self.places,
+                           "dismissed": self.dismissed, "hidden": self.hidden, "steps": self.steps,
+                           "places": self.places,
                            "snoozed": self.snoozed}, sort_keys=True)
 
     def restore(self, snapshot: str) -> None:
         raw = json.loads(snapshot)
         self.notes = [Item.from_dict(n) for n in raw["notes"]]
         self.overrides, self.dismissed, self.steps = raw["overrides"], raw["dismissed"], raw["steps"]
+        self.hidden = raw.get("hidden", {})
         self.places = raw.get("places", {})
         self.snoozed = raw.get("snoozed", {})
 
@@ -491,9 +497,19 @@ class Store:
     def visible(self, now: datetime) -> list[Item]:
         items = list(self.notes)
         for group in self.synced.values():
-            items.extend(i for i in group if i.id not in self.dismissed and not _ended(i, now))
+            items.extend(i for i in group if i.id not in self.dismissed and i.id not in self.hidden
+                         and not _ended(i, now))
         asleep = {k for k, until in self.snoozed.items() if _when(until, now) > now}
         return [i for i in items if i.id not in asleep]
+
+    def delete(self, item: Item, now: datetime) -> Item:
+        """Remove without it counting as done: your notes are deleted; anything synced is hidden here
+        (Nudgy only reads Google, Signal and the rest, so the original stays where it is)."""
+        if item.source == "note":
+            self.notes = [n for n in self.notes if n.id != item.id]
+        else:
+            self.hidden[item.id] = now.isoformat()
+        return item
 
     def finish(self, item: Item, now: datetime) -> Item:
         """Tick an item off. Notes are removed; synced items are only hidden on this laptop."""
@@ -548,6 +564,9 @@ class Store:
         # Items turned into steps stay hidden for as long as the step exists.
         self.dismissed = {k: v for k, v in self.dismissed.items()
                           if k in nested or datetime.fromisoformat(v) > cutoff}
+        # Something you hid stays hidden for as long as its source still has it.
+        synced = {i.id for group in self.synced.values() for i in group}
+        self.hidden = {k: v for k, v in self.hidden.items() if k in synced or datetime.fromisoformat(v) > cutoff}
         live = {i.id for i in self.visible(now)}
         self.overrides = {k: v for k, v in self.overrides.items() if k in live}
         self.steps = {k: v for k, v in self.steps.items() if k in live}

@@ -955,7 +955,8 @@ class Pet(Gtk.Window):
         if said:
             reply.say = said
         self.mood.voice = "talk"
-        changed = reply.action in ("add_note", "done", "reschedule", "priority", "add_step") or reply.command == "undo"
+        changed = reply.action in ("add_note", "done", "delete", "reschedule", "priority", "add_step") or \
+            reply.command == "undo"
         buttons = (("Undo", self.list._undo), ("OK", None)) if changed and reply.command != "undo" else \
             (("Talk again", self.talk), ("OK", None))
         self.say(f"You: “{heard}”\n\n{reply.say}", seconds=40, buttons=buttons)
@@ -989,6 +990,9 @@ class Pet(Gtk.Window):
                 self.list._changed()
         elif reply.action == "done" and item:
             self.list._finish(item)
+        elif reply.action == "delete" and item:
+            self.list._delete(item)
+            return f"{'Deleted' if item.source == 'note' else 'Hid'} {voice.short_title(item.title, 6)}."
         elif reply.action == "open" and item:
             self.list._open(item)
         elif reply.action == "show_list":

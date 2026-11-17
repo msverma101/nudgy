@@ -138,6 +138,9 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 - Type a note and press Enter. `!` at the start or end means high priority; ending with `today` or
   `tomorrow` sets the date: `!pay rent tomorrow`
 - Click an item to open it. Double-click a note to edit it. Right-click for more.
+- Right-click > **Delete** removes one of your notes without counting it as done. For items from Gmail,
+  Calendar and the rest it says **Hide from Nudgy**: Nudgy only reads those services, so the original
+  stays there and just leaves your list. You can also say "delete the milk note". **↶** brings it back.
 - Click the coloured dot to cycle priority: high, low, automatic.
 - Items are grouped by where they come from (Notes, Calendar, Luma, Gmail, Signal…), most pressing
   first inside each group. Click a group's heading to fold it. **▤** switches to Now / Soon / Later.
@@ -215,7 +218,7 @@ Click it while it talks to stop it. It understands English and German.
 | Change | "I finished the poster", "move the dentist to Monday", "remind me about the slides in an hour", "make the slides urgent", "add a step to the poster: laminate it" |
 | Undo | "undo that" (or the Undo button in the bubble) |
 | Focus | "focus on the slides for 25 minutes" (a ring around the pet counts down), "stop the timer", "turn the focus check off" |
-| Controls | "sync now", "re-rank my list", "open the interview email", "show me the list", "hide" |
+| Controls | "sync now", "re-rank my list", "delete the milk note", "open the interview email", "show me the list", "hide" |
 | Write | "break the slides into steps", "draft a reply to the interview email saying Tuesday works", "write back to Mia that I'm running late" |
 | Google* | "add call the dentist on Friday to my Google Tasks", "put lunch with Mia tomorrow at 1pm in my calendar" |
 

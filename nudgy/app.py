@@ -902,6 +902,7 @@ class Window(Gtk.ApplicationWindow):
             name = {"normal": "automatic", "medium": "medium (Soon)"}.get(level, level)
             choices.append((f"Priority: {name}", partial(self._set_priority, item, level)))
         choices.append(("Done", lambda: self._finish(item)))
+        choices.append(("Delete" if item.source == "note" else "Hide from Nudgy", lambda: self._delete(item)))
         for label, action in choices:
             entry = Gtk.MenuItem(label=label)
             entry.connect("activate", lambda _w, action=action: action())
@@ -1011,6 +1012,13 @@ class Window(Gtk.ApplicationWindow):
     def _clear_done_steps(self, item: Item) -> None:
         self.store.clear_done_steps(item.id)
         self._changed()
+
+    def _delete(self, item: Item) -> None:
+        """Gone from the list without counting as done. ↶ brings it back."""
+        self.store.delete(item, now())
+        self.problem = ("Deleted. ↶ brings it back." if item.source == "note" else
+                        f"Hidden here; it's still in {OPENS_IN.get(item.source, 'its source')}. ↶ brings it back.")
+        GLib.idle_add(self._changed)
 
     def _finish(self, item: Item) -> None:
         self.store.finish(item, now())
