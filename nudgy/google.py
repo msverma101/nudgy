@@ -92,6 +92,7 @@ def import_client(source: Path) -> None:
 
 def sign_out() -> None:
     token_path().unlink(missing_ok=True)
+    account_path().unlink(missing_ok=True)
 
 
 def _write_token(token: dict, path: Path | None = None) -> None:
@@ -305,8 +306,30 @@ def _mail_url(account: str, message_id: str) -> str:
     return f"https://mail.google.com/mail/u/{urllib.parse.quote(account, safe='@')}/#all/{message_id}"
 
 
+def account_path() -> Path:
+    return config_dir() / "google-account.txt"
+
+
 def _account() -> str:
-    return api("https://gmail.googleapis.com/gmail/v1/users/me/profile")["emailAddress"]
+    account = api("https://gmail.googleapis.com/gmail/v1/users/me/profile")["emailAddress"]
+    try:                                    # remembered so the Accounts window can tell without a network call
+        path = account_path()
+        if not path.exists() or path.read_text().strip() != account:
+            path.write_text(account)
+    except OSError:
+        pass
+    return account
+
+
+def personal_account() -> bool | None:
+    """True for a personal @gmail.com account, False for Workspace, None if not known yet."""
+    try:
+        account = account_path().read_text().strip().lower()
+    except OSError:
+        return None
+    if not account:
+        return None
+    return account.endswith(("@gmail.com", "@googlemail.com"))
 
 
 def fetch_gmail() -> list[Item]:

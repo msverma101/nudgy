@@ -143,6 +143,8 @@ def fetch_keep(now: datetime) -> list[Item] | None:
 
 def status() -> str:
     if not token_path().exists():
+        if google.personal_account():
+            return "Not available for personal Google accounts"
         return "Not connected"
     try:
         summary = json.loads(summary_path().read_text())

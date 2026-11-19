@@ -1283,7 +1283,10 @@ class Window(Gtk.ApplicationWindow):
         rows = [
             ("google", "Calendar, Tasks, Gmail", self._google_action(state["google"])),
             ("linkedin", "Messages, invitations and jobs from LinkedIn's emails. LinkedIn has no inbox API.", None),
-            ("keep", "Official Keep API: works for Google Workspace accounts whose admin allows it, "
+            ("keep", "Keep notes with a reminder already come in through Google Tasks. Google offers "
+                     "no way to read other Keep notes from a personal account."
+             if google.personal_account() and not state["keep"].startswith("Connected") else
+                     "Official Keep API: works for Google Workspace accounts whose admin allows it, "
                      "not personal Gmail. Shows notes with dates, to-dos, urgent words or recent edits.",
              self._keep_action(state["keep"])),
             ("luma", "Events you host, registered for or are waitlisted for. Updated every hour.",
@@ -1322,6 +1325,8 @@ class Window(Gtk.ApplicationWindow):
         return "Set up…", "One-time Google Cloud setup", self._google_setup
 
     def _keep_action(self, state: str):
+        if google.personal_account() and not state.startswith("Connected"):
+            return None       # Google refuses Keep for personal accounts; reminders arrive via Tasks
         if state.startswith("Connected"):
             return "Disconnect", "Forget the Keep sign-in on this laptop", self._keep_disconnect
         if not google.client_path().exists():

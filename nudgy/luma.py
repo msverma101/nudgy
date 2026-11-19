@@ -120,9 +120,8 @@ def luma_items(text: str, now: datetime, days: int = DAYS_AHEAD) -> list[Item]:
         if not url:
             found = re.search(r"https://(?:lu\.ma|luma\.com)/[\w-]+", description + " " + location)
             url = found.group(0) if found else ""
-        status = event.get("STATUS", ({}, ""))[1].upper()
-        detail = "Pending or waitlisted" if status == "TENTATIVE" else (
-            "" if location.startswith("http") else location.split(",")[0])
+        # No status label: Luma's feed marks every event TENTATIVE, approved, attended or waitlisted.
+        detail = "" if location.startswith("http") else location.split(",")[0]
         uid = event.get("UID", ({}, title + str(start)))[1]
         items.append(Item(id=f"luma:{uid}", source="luma", title=title, detail=detail,
                           due=start.isoformat(), end=end.isoformat() if end else None,

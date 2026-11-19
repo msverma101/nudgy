@@ -72,9 +72,9 @@ class Parsing(unittest.TestCase):
         self.assertEqual(hack.detail, "Example Hall")
         self.assertEqual(hack.id, "luma:evt-robotics@lu.ma")
 
-    def test_waitlisted_event_happening_now(self):
+    def test_tentative_event_happening_now(self):
         bbh = self.items["BIG HARBOUR HACK"]
-        self.assertEqual(bbh.detail, "Pending or waitlisted")
+        self.assertEqual(bbh.detail, "")    # Luma marks every event TENTATIVE, so no status label
         self.assertEqual(bbh.url, "https://luma.com/bbh")   # no URL field: taken from LOCATION
         self.assertEqual(bucket(score(bbh, T + timedelta(minutes=45))), NOW)
         self.assertEqual(friendly_time(bbh, T + timedelta(minutes=45)), "Happening now")

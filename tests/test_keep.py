@@ -102,3 +102,38 @@ class Access(unittest.TestCase):
             with mock.patch.object(keep, "list_notes", return_value=NOTES):
                 self.assertEqual(len(keep.fetch_keep(T)), 4)
             self.assertEqual(keep.status(), "Connected · 4 of 8 notes look important")
+
+
+class PersonalAccount(unittest.TestCase):
+    """Google refuses the Keep API for personal accounts, so Nudgy says so instead of offering Connect."""
+
+    def run_with(self, account):
+        with tempfile.TemporaryDirectory() as home, \
+                mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}):
+            if account is not None:
+                google.account_path().parent.mkdir(parents=True, exist_ok=True)
+                google.account_path().write_text(account)
+            return google.personal_account(), keep.status()
+
+    def test_gmail_account(self):
+        self.assertEqual(self.run_with("someone@gmail.com\n"),
+                         (True, "Not available for personal Google accounts"))
+
+    def test_googlemail_account(self):
+        self.assertTrue(self.run_with("Someone@GoogleMail.com")[0])
+
+    def test_workspace_account(self):
+        self.assertEqual(self.run_with("someone@example.org"), (False, "Not connected"))
+
+    def test_unknown_account(self):
+        self.assertEqual(self.run_with(None), (None, "Not connected"))
+
+    def test_account_remembered_and_forgotten(self):
+        with tempfile.TemporaryDirectory() as home, \
+                mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}), \
+                mock.patch.object(google, "api", return_value={"emailAddress": "someone@gmail.com"}):
+            google.account_path().parent.mkdir(parents=True, exist_ok=True)
+            self.assertEqual(google._account(), "someone@gmail.com")
+            self.assertTrue(google.personal_account())
+            google.sign_out()
+            self.assertIsNone(google.personal_account())
