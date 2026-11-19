@@ -174,7 +174,7 @@ class History(Base):
             self.store.dismissed["claude:abc"] = T.isoformat()
             self.core.changed()
         tick.assert_called_once_with("claude:abc", True)
-        self.assertEqual(self.core.problem, "That item changed in Open Items.md; ticked here only")
+        self.assertEqual(self.core.problem, "That item changed in your notes file; ticked here only")
 
     def test_broken_listener_does_not_stop_others(self):
         self.core.listen(lambda _what: 1 / 0)

@@ -211,6 +211,6 @@ class Core:
         for item_id, done in [(i, True) for i in new - old] + [(i, False) for i in old - new]:
             try:
                 if not claude_notes.set_ticked(item_id, done):
-                    self.set_problem("That item changed in Open Items.md; ticked here only")
+                    self.set_problem("That item changed in your notes file; ticked here only")
             except OSError as error:
-                self.set_problem(f"Could not update Open Items.md: {error}")
+                self.set_problem(f"Could not update your notes file: {error}")
