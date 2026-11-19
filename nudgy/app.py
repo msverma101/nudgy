@@ -16,19 +16,16 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
 
-import json  # noqa: E402
 import tempfile  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-from . import chats, claude_notes, digest, google, keep, luma, phone, sources  # noqa: E402
-from .changes import Changes  # noqa: E402
+from . import chats, claude_notes, google, keep, luma, phone, sources  # noqa: E402
+from .core import Core, Loop  # noqa: E402
 from .model import (LATER, LEVELS, NOW, SOON, Item, Store, bucket, friendly_time, place_between,  # noqa: E402
-                    important, place_key, ranked, search, ticked_claude)
+                    important, place_key, ranked, search)
 
 log = logging.getLogger(__name__)
 
-CHECK_SECONDS = 60      # how often sources are asked whether anything new arrived
-DIGEST_SECONDS = 3600   # how often Claude turns new jotted notes into steps
 AUTO_CLOSE = 8          # seconds the open list may sit unused before it closes
 WIDTH, HEIGHT = 340, 520
 SOURCE_LABELS = {"note": "Note", "task": "Task", "calendar": "Calendar", "gmail": "Gmail", "linkedin": "LinkedIn",
@@ -125,20 +122,36 @@ def now() -> datetime:
     return datetime.now().astimezone()
 
 
+class GLibLoop(Loop):
+    """Runs the core's work on the GTK main thread, so the store is only changed from there."""
+
+    def call_soon(self, fn, *args) -> None:
+        def once() -> bool:
+            fn(*args)
+            return False
+        GLib.idle_add(once)
+
+    def after(self, seconds: float, fn) -> None:
+        def once() -> bool:
+            fn()
+            return False
+        GLib.timeout_add(int(seconds * 1000), once)
+
+    def every(self, seconds: float, fn) -> None:
+        def again() -> bool:
+            fn()
+            return True
+        GLib.timeout_add_seconds(int(seconds), again)
+
+
 class Window(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application, store: Store):
         super().__init__(application=app, title="Nudgy")
-        self.store = store
-        self.syncing = False
-        self.problem = ""
-        self.last_sync: datetime | None = None
+        self.core = Core(store, GLibLoop(), now, SOURCE_LABELS)
+        self.core.listen(self._core_event)
         self.undo_timer = 0
-        self.history: list[str] = []      # snapshots before each change, newest last
-        self.redo_stack: list[str] = []
-        self.current = self.store.snapshot()
         self.save_timer = 0
         self.accounts_grid = None
-        self.pending: str | None = None      # a sync asked for while another was running
         self.on_update = self.on_finish = self.on_hide = None   # the pet listens to these
         self.on_say = None                                       # (text) -> the pet says it in a bubble
         self.on_reopen = None                                    # () -> the pet opens the list beside it
@@ -153,13 +166,30 @@ class Window(Gtk.ApplicationWindow):
         self.idle_timer = 0
         self.dragging = False
         self.render()
-        self.changes = Changes()
-        self.sync(manual=False)
+        self.core.start()
         GLib.timeout_add_seconds(60, self._tick)
-        if digest.due():
-            GLib.timeout_add_seconds(90, lambda: self.digest() and False)
-        GLib.timeout_add_seconds(CHECK_SECONDS, self._check_tick)
-        GLib.timeout_add_seconds(DIGEST_SECONDS, self._digest_tick)
+
+    # The core owns these; the window and the pet read them through here.
+    store = property(lambda self: self.core.store)
+    syncing = property(lambda self: self.core.syncing)
+    last_sync = property(lambda self: self.core.last_sync)
+    history = property(lambda self: self.core.history)
+
+    @property
+    def problem(self) -> str:
+        return self.core.problem
+
+    @problem.setter
+    def problem(self, text: str) -> None:
+        self.core.problem = text                # the window shows it itself with _show_status
+
+    def _core_event(self, what: str) -> None:
+        if what == "items":
+            self.render()
+        elif what == "status":
+            self._show_status()
+        elif what == "history":
+            self.undo.set_sensitive(self.core.can_undo())
 
     def _build(self) -> None:
         provider = Gtk.CssProvider()
@@ -1082,41 +1112,6 @@ class Window(Gtk.ApplicationWindow):
         self.search.hide()
         self.render()
 
-    def _flash_undo(self) -> None:
-        """The ↶ button is always there; it is greyed out when there is nothing to undo."""
-        self.undo.set_sensitive(True)
-
-    def _hide_undo(self) -> bool:
-        self.undo.set_sensitive(False)
-        return False
-
-    def _step_history(self, source: list[str], target: list[str], word: str) -> None:
-        if not source:
-            self.problem = f"Nothing to {word.lower()}"
-            self._show_status()
-            GLib.timeout_add_seconds(3, self._clear_hint, self.problem)
-            return
-        target.append(self.store.snapshot())
-        previous, self.current = self.current, source.pop()
-        self.store.restore(self.current)
-        self._write_back(previous, self.current)
-        self.store.save()
-        self.render()
-        if source is self.history and not self.history:
-            self._hide_undo()
-
-    def _write_back(self, before: str, after: str) -> None:
-        """Mirror ticks of Claude follow-ups into the notes file, so they're closed there too."""
-        old, new = ticked_claude(json.loads(before)), ticked_claude(json.loads(after))
-        for item_id, done in [(i, True) for i in new - old] + [(i, False) for i in old - new]:
-            try:
-                if not claude_notes.set_ticked(item_id, done):
-                    self.problem = "That item changed in Open Items.md; ticked here only"
-                    self._show_status()
-            except OSError as error:
-                self.problem = f"Could not update Open Items.md: {error}"
-                self._show_status()
-
     def _clear_hint(self, hint: str) -> bool:
         if self.problem == hint:
             self.problem = ""
@@ -1124,12 +1119,10 @@ class Window(Gtk.ApplicationWindow):
         return False
 
     def _undo(self, *_args) -> None:
-        self._step_history(self.history, self.redo_stack, "Undo")
+        self.core.undo()
 
     def _redo(self, *_args) -> None:
-        self._step_history(self.redo_stack, self.history, "Redo")
-        if self.history:
-            self._flash_undo()
+        self.core.redo()
 
     def _add(self, entry: Gtk.Entry) -> None:
         if self.store.add_note(entry.get_text(), now()):
@@ -1137,16 +1130,8 @@ class Window(Gtk.ApplicationWindow):
             self._changed()
 
     def _changed(self) -> bool:
-        """Every change by hand ends here, so this is where undo history is recorded."""
-        snapshot = self.store.snapshot()
-        if snapshot != self.current:
-            self._write_back(self.current, snapshot)
-            self.history = (self.history + [self.current])[-100:]
-            self.redo_stack.clear()
-            self.current = snapshot
-            self._flash_undo()
-        self.store.save()
-        self.render()
+        """Every change by hand ends here; the core records undo history and saves."""
+        self.core.changed()
         return False
 
     def _show_status(self) -> None:
@@ -1169,96 +1154,12 @@ class Window(Gtk.ApplicationWindow):
         self.render()       # items change bucket as time passes, even without a sync
         return True
 
-    def _check_tick(self) -> bool:
-        """Every minute: ask each source whether anything is new, and fetch only those."""
-        if not self.syncing:
-            self.syncing = True
-            threading.Thread(target=self._check_worker, daemon=True).start()
-        return True
-
-    def _check_worker(self) -> None:
-        groups = self.changes.due()
-        if not groups:
-            GLib.idle_add(self._nothing_new)
-            return
-        moment = now()
-        items, errors = sources.sync_groups(moment, groups, calendar=self.store.synced.get("calendar"))
-        GLib.idle_add(self._sync_done, items, errors, moment, groups == set(sources.GROUPS), False)
-
-    def _nothing_new(self) -> bool:
-        self.syncing = False
-        self.last_sync = now()
-        self._show_status()
-        self._run_pending()
-        return False
-
     def sync(self, manual: bool = True) -> None:
-        """Fetches everything now. A sync you start by hand also runs the Claude notes digest."""
-        if self.syncing:
-            self.pending = self.pending or ("manual" if manual else "auto")   # run it right after
-            return
-        self.syncing = True
-        self._show_status()
-        threading.Thread(target=self._sync_worker, args=(manual,), daemon=True).start()
-
-    def _run_pending(self) -> None:
-        pending, self.pending = getattr(self, "pending", None), None
-        if pending:
-            self.sync(manual=pending == "manual")
-
-    def _sync_worker(self, manual: bool) -> None:
-        moment = now()
-        items, errors = sources.sync_all(moment)
-        GLib.idle_add(self._sync_done, items, errors, moment, True, manual)
-
-    def _digest_tick(self) -> bool:
-        self.digest()
-        return True
+        """Fetches everything now. A sync you start by hand also runs the notes digest."""
+        self.core.sync(manual)
 
     def digest(self) -> None:
-        """Claude turns long jotted notes (like Keep event notes) into concrete steps, in the background."""
-        if getattr(self, "digesting", False):
-            return
-        self.digesting = True
-        items = self.store.visible(now())
-        threading.Thread(target=lambda: GLib.idle_add(self._digest_done, digest.run(items, self.store.steps)),
-                         daemon=True).start()
-
-    def _digest_done(self, result: dict) -> bool:
-        self.digesting = False
-        if result.get("steps"):
-            for item_id, steps in result["steps"].items():
-                self.store.steps.setdefault(item_id, []).extend(steps)
-            self.store.save()
-            self.current = self.store.snapshot()     # suggestions are not an undoable change of yours
-            self.render()
-        if result.get("error"):
-            self.problem = f"Notes digest: {result['error']}"
-            self._show_status()
-        return False
-
-    def _sync_done(self, items: dict, errors: dict, moment: datetime, full: bool = True,
-                   manual: bool = False) -> bool:
-        self.syncing = False
-        if full:
-            self.changes.full_done()
-        if manual:
-            self.digest()
-        GLib.idle_add(lambda: self._run_pending() and False)
-        self.store.synced.update(items)     # failed sources keep their last good items
-        self.store.prune(moment)
-        self.store.save()
-        self.current = self.store.snapshot()    # tidying after a sync is not an undoable change
-        if items:
-            self.last_sync = moment
-        reasons = set(errors.values())
-        if len(reasons) == 1 and not items:
-            self.problem = reasons.pop()
-        else:
-            self.problem = "; ".join(f"{SOURCE_LABELS[k]}: {v}" for k, v in errors.items())
-        self.render()
-        return False
-
+        self.core.digest()
 
     # ---- accounts ------------------------------------------------------------------------------
     def _accounts(self) -> None:
