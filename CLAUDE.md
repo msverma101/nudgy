@@ -5,7 +5,7 @@ companion app (Kotlin). Read `CONTRIBUTING.md` first: its "Rules for changes" ar
 
 ## Commands
 
-    python3 -m unittest discover -s tests -t .     # all tests, < 1 s, no network or accounts
+    python3 -m unittest discover -s tests -t .     # all tests, ~2 s, no network or accounts
     uvx ruff@0.17.5 check nudgy tests tools        # lint (CI uses this exact version)
     uvx mypy@2.4.1 nudgy                           # types
     PYTHONPATH=. python3 -m nudgy                   # run from the checkout
@@ -19,7 +19,8 @@ Run the tests, ruff and mypy before saying a change is done. CI runs the same on
   one, then list it in `PLUGINS` in `sources/__init__.py`).
 - `nudgy/core/`: the headless core (`Core`: sync, change checks, digest, undo, status; `Loop`: where its
   work runs). No GTK here.
-- `nudgy/model.py`: items, ranking, date parsing, storage. No UI or network code.
+- `nudgy/model.py`: items, ranking, date parsing, the `Store`. No UI or network code.
+- `nudgy/storage.py`: the SQLite file behind the `Store` (one row per section, plus a change log).
 - `nudgy/app.py`, `pet.py`, `watch.py`: the GTK window and pet. Only these import GTK.
 - `nudgy/google.py`, `luma.py`, `discover.py`, `chats.py`, `keep.py`, `claude_notes.py`: service code.
 - `android/`: the phone app, no third-party libraries.

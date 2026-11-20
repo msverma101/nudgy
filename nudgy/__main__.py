@@ -24,6 +24,7 @@ nudgy list             print the important items in the terminal (--all for ever
 nudgy sync             fetch from every service once and print any problems
 nudgy phone FOLDER     share what needs you now with the Android pet through FOLDER (e.g. a Syncthing folder)
 nudgy phone off        stop sharing with the phone
+nudgy export [FILE]    write all your data as JSON (to the screen, or to a private FILE)
 nudgy events           search public event listings now (otherwise every 6 hours) and print the best
 """
 from __future__ import annotations
@@ -191,6 +192,22 @@ def voice_command(rest: list[str], moment) -> int:
     return 2
 
 
+def export_command(rest: list[str]) -> int:
+    import json
+
+    from .model import Store
+    text = json.dumps(Store().export(), indent=1, ensure_ascii=False) + "\n"
+    if not rest:
+        sys.stdout.write(text)
+        return 0
+    target = os.path.expanduser(rest[0])
+    # Private like the database itself: it holds email subjects.
+    with os.fdopen(os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as out:
+        out.write(text)
+    print(f"Saved to {target}")
+    return 0
+
+
 def main() -> int:
     command = sys.argv[1] if len(sys.argv) > 1 else "run"
     if command in ("--version", "version"):
@@ -209,6 +226,8 @@ def main() -> int:
     if command in ("toggle", "open", "talk"):
         from .app import remote
         return remote({"toggle": "toggle", "open": "open-list", "talk": "talk"}[command])
+    if command == "export":
+        return export_command(sys.argv[2:])
     if command == "voice":
         return voice_command(sys.argv[2:], moment)
     if command == "models":

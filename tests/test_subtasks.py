@@ -12,7 +12,7 @@ NOW_T = datetime(2026, 11, 12, 12, 0, tzinfo=timezone(timedelta(hours=1)))
 class Subtasks(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
-        self.store = Store(Path(self.folder.name) / "state.json")
+        self.store = Store(Path(self.folder.name) / "nudgy.db")
         self.parent = self.store.add_note("Apply to Filmhack", NOW_T)
         self.child = self.store.add_note("Export the Garden clip", NOW_T)
 

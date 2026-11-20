@@ -5,11 +5,13 @@ import functools
 import json
 import os
 import re
-import tempfile
+import sqlite3
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta
 from pathlib import Path
+
+from .storage import Database
 
 NOW, SOON, LATER = "Now", "Soon", "Later"
 LEVELS = ("high", "medium", "normal", "low")     # normal = automatic; medium keeps an item in Soon
@@ -355,6 +357,10 @@ STATE_KEYS = ("version", "notes", "synced", "overrides", "dismissed", "hidden", 
               "window")
 
 
+# Sections you change by hand. Their changes are logged; synced items and window layout are not.
+LOGGED_SECTIONS = frozenset({"notes", "overrides", "dismissed", "hidden", "steps", "places", "snoozed"})
+
+
 def migrate(raw: dict) -> dict:
     """Brings a saved state up to STATE_VERSION. Version 0 is the file before it had a version."""
     version = raw.get("version", 0)
@@ -373,7 +379,9 @@ class Store:
     """Everything local: your notes, priority changes, dismissed items and the last synced items."""
 
     def __init__(self, path: Path | None = None):
-        self.path = path or data_dir() / "state.json"
+        self.path = path or data_dir() / "nudgy.db"
+        self.legacy = self.path.with_name("state.json")      # the single file used before SQLite
+        self.db: Database | None = None
         self.notes: list[Item] = []
         self.synced: dict[str, list[Item]] = {}
         self.overrides: dict[str, str] = {}
@@ -389,13 +397,8 @@ class Store:
         self.load()
 
     def load(self) -> None:
-        try:
-            raw = json.loads(self.path.read_text())
-        except FileNotFoundError:
-            return
-        except ValueError:
-            # Keep the damaged file for recovery rather than overwriting it on the next save.
-            self.path.replace(self.path.with_suffix(".corrupt"))
+        raw = self._open()
+        if not raw:
             return
         raw = migrate(raw)
         # Sections a newer version added are kept as they are and written back unchanged.
@@ -411,9 +414,47 @@ class Store:
         self.snoozed = raw.get("snoozed", {})
         self.window = raw.get("window", {})
 
+    def _open(self) -> dict:
+        try:
+            self.db = Database(self.path)
+            raw = self.db.read()
+        except sqlite3.DatabaseError:
+            # Keep the damaged file for recovery rather than overwriting it.
+            self._set_aside(self.path)
+            for suffix in ("-wal", "-shm"):
+                Path(f"{self.path}{suffix}").unlink(missing_ok=True)
+            self.db = Database(self.path)
+            raw = {}
+        if not raw and self.legacy.exists():
+            raw = self._import_legacy()
+        return raw
+
+    @staticmethod
+    def _set_aside(path: Path) -> None:
+        path.replace(path.with_suffix(".corrupt"))
+
+    def _import_legacy(self) -> dict:
+        """Moves state.json into the database once. The file is kept as state.json.imported."""
+        try:
+            raw = json.loads(self.legacy.read_text())
+        except ValueError:
+            self._set_aside(self.legacy)
+            return {}
+        assert self.db is not None
+        self.db.write(raw)
+        self.legacy.replace(self.legacy.with_name("state.json.imported"))
+        return raw
+
+    def export(self) -> dict:
+        """Everything as one JSON-ready dict, in the layout state.json had."""
+        return self._payload()
+
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        payload = {
+        assert self.db is not None
+        self.db.write(self._payload(), logged=LOGGED_SECTIONS)
+
+    def _payload(self) -> dict:
+        return {
             **self.extra,
             "version": max(STATE_VERSION, self.file_version),   # never downgrade a newer file's version
             "notes": [asdict(n) for n in self.notes],
@@ -422,11 +463,6 @@ class Store:
             "places": self.places,
             "snoozed": self.snoozed, "window": self.window,
         }
-        # mkstemp creates the file private, which matters because it holds email subjects.
-        handle, temp = tempfile.mkstemp(dir=self.path.parent, prefix=".state-")
-        with os.fdopen(handle, "w") as out:
-            json.dump(payload, out, indent=1)
-        os.replace(temp, self.path)
 
     def snapshot(self) -> str:
         """Everything you can change by hand, as text: notes, priorities, ticked items and steps.

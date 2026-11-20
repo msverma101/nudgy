@@ -379,12 +379,15 @@ version runs, and the old files are kept as `*.json.migrated`.
     nudgy claude connect | disconnect | status   # optional Claude
     nudgy voice setup | on | off | test | ask TEXT
     nudgy phone FOLDER | off            # share the list with the Android app through FOLDER
+    nudgy export [FILE]                 # all your data as JSON
     systemctl --user stop nudgy         # close until next login
     systemctl --user disable --now nudgy    # stop starting at login
 
 Always-on-top needs an X11 session. On Wayland GNOME ignores it.
 
-Your data is in `~/.local/share/nudgy/state.json`, your Google token in `~/.config/nudgy/token.json`.
+Your data is in `~/.local/share/nudgy/nudgy.db` (SQLite; `nudgy export` gives it to you as JSON), your Google
+token in `~/.config/nudgy/token.json`. Older versions used `state.json`: it is imported once and kept
+as `state.json.imported`.
 
 If something doesn't work, the log says what failed: `journalctl --user -u nudgy`.
 

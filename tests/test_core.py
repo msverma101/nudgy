@@ -36,7 +36,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
-        self.store = Store(Path(folder.name) / "state.json")
+        self.store = Store(Path(folder.name) / "nudgy.db")
         self.loop = StepLoop()
         self.core = Core(self.store, self.loop, clock=lambda: T, labels={"gmail": "Gmail"})
         self.events: list[str] = []

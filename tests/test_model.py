@@ -86,7 +86,7 @@ class Storage(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
-        self.path = Path(self.dir.name) / "state.json"
+        self.path = Path(self.dir.name) / "nudgy.db"
 
     def test_round_trip_and_private_file(self):
         store = Store(self.path)
@@ -124,11 +124,51 @@ class Storage(unittest.TestCase):
                                     Item("c:2", "calendar", "Now", due=at(hours=-1), end=at(hours=1))]
         self.assertEqual([i.id for i in store.visible(NOW_T)], ["c:2"])
 
-    def test_corrupt_state_is_preserved(self):
-        self.path.write_text("{not json")
+    def test_corrupt_database_is_preserved(self):
+        self.path.write_bytes(b"not a database at all, just junk" * 64)
         store = Store(self.path)
         self.assertEqual(store.notes, [])
         self.assertTrue(self.path.with_suffix(".corrupt").exists())
+        store.add_note("still works", NOW_T)
+        store.save()
+        self.assertEqual(Store(self.path).notes[0].title, "still works")
+
+    def test_old_state_json_is_imported_once_and_kept(self):
+        legacy = self.path.with_name("state.json")
+        legacy.write_text(json.dumps({"version": 2, "notes": [
+            {"id": "note:1", "source": "note", "title": "Pay rent"}], "overrides": {"note:1": "high"}}))
+        store = Store(self.path)
+        self.assertEqual([n.title for n in store.notes], ["Pay rent"])
+        self.assertEqual(store.overrides, {"note:1": "high"})
+        self.assertFalse(legacy.exists())
+        self.assertTrue(legacy.with_name("state.json.imported").exists())
+        self.assertEqual(Store(self.path).notes[0].title, "Pay rent")       # read from the database now
+
+    def test_corrupt_state_json_is_preserved(self):
+        legacy = self.path.with_name("state.json")
+        legacy.write_text("{not json")
+        self.assertEqual(Store(self.path).notes, [])
+        self.assertTrue(legacy.with_suffix(".corrupt").exists())
+
+    def test_only_changed_sections_are_written_and_hand_changes_logged(self):
+        store = Store(self.path)
+        store.add_note("Call Ana", NOW_T)
+        store.save()
+        log = store.db.changes()
+        self.assertEqual({c["section"] for c in log}, {"notes"})      # empty sections were never logged
+        store.synced["gmail"] = [Item("gmail:1", "gmail", "Hello")]
+        self.assertEqual(store.db.write(store.export(), {"notes"}), 1)  # only "synced" changed
+        self.assertEqual(store.db.changes(since=log[-1]["seq"]), [])  # synced items are not logged
+        store.save()
+        self.assertEqual(store.db.write(store.export()), 0)          # nothing new
+
+    def test_export_has_the_state_json_layout(self):
+        store = Store(self.path)
+        store.add_note("x", NOW_T)
+        exported = json.loads(json.dumps(store.export()))
+        self.assertEqual(exported["version"], 2)
+        self.assertEqual(exported["notes"][0]["title"], "x")
+        self.assertIn("synced", exported)
 
     def test_prune(self):
         store = Store(self.path)
@@ -146,7 +186,7 @@ if __name__ == "__main__":
 class Steps(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
-        self.path = Path(self.dir.name) / "state.json"
+        self.path = Path(self.dir.name) / "nudgy.db"
 
     def tearDown(self):
         self.dir.cleanup()
@@ -199,7 +239,7 @@ class Steps(unittest.TestCase):
 class Snapshots(unittest.TestCase):
     def test_restore_brings_back_notes_priorities_steps_and_ticks(self):
         with tempfile.TemporaryDirectory() as folder:
-            store = Store(Path(folder) / "state.json")
+            store = Store(Path(folder) / "nudgy.db")
             note = store.add_note("!call landlord", NOW_T)
             store.add_step(note.id, "find number")
             store.synced = {"gmail": [Item("gmail:1", "gmail", "Offer")]}
@@ -240,14 +280,14 @@ class Placing(unittest.TestCase):
 
     def test_places_are_saved_pruned_and_undoable(self):
         with tempfile.TemporaryDirectory() as folder:
-            store = Store(Path(folder) / "state.json")
+            store = Store(Path(folder) / "nudgy.db")
             note = store.add_note("x", NOW_T)
             before = store.snapshot()
             store.places = {note.id: -3.0, "gone": 1.0}
             store.prune(NOW_T)
             self.assertEqual(store.places, {note.id: -3.0})
             store.save()
-            self.assertEqual(Store(Path(folder) / "state.json").places, {note.id: -3.0})
+            self.assertEqual(Store(Path(folder) / "nudgy.db").places, {note.id: -3.0})
             store.restore(before)
             self.assertEqual(store.places, {})
 
@@ -320,8 +360,8 @@ class QuickAddDatesTest(QuickAddTimesTest):
 class StateVersionTest(unittest.TestCase):
     def test_unknown_fields_and_sections_survive(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "state.json"
-            path.write_text(json.dumps({
+            path = Path(folder) / "nudgy.db"
+            path.with_name("state.json").write_text(json.dumps({
                 "version": 99, "future_section": {"keep": True},
                 "notes": [{"id": "note:1", "source": "note", "title": "Pay rent", "colour": "blue"}],
                 "synced": {"task": [{"id": "task:1", "source": "task", "title": "Call", "new_field": 1}]}}))
@@ -329,17 +369,17 @@ class StateVersionTest(unittest.TestCase):
             self.assertEqual([n.title for n in store.notes], ["Pay rent"])
             self.assertEqual(store.synced["task"][0].title, "Call")
             store.save()
-            saved = json.loads(path.read_text())
+            saved = Store(path).export()
             self.assertEqual(saved["future_section"], {"keep": True})
             self.assertEqual(saved["version"], 99)            # not downgraded
 
     def test_old_file_gets_a_version(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "state.json"
-            path.write_text(json.dumps({"notes": []}))
+            path = Path(folder) / "nudgy.db"
+            path.with_name("state.json").write_text(json.dumps({"notes": []}))
             store = Store(path)
             store.save()
-            self.assertEqual(json.loads(path.read_text())["version"], 2)
+            self.assertEqual(Store(path).export()["version"], 2)
 
 
 class UrgentWordsTest(unittest.TestCase):
@@ -357,8 +397,8 @@ class UrgentWordsTest(unittest.TestCase):
 class WhatsAppLeftoversTest(unittest.TestCase):
     def test_old_whatsapp_entries_are_dropped_on_load(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "state.json"
-            path.write_text(json.dumps({
+            path = Path(folder) / "nudgy.db"
+            path.with_name("state.json").write_text(json.dumps({
                 "version": 1,
                 "synced": {"whatsapp": [{"id": "whatsapp:1", "source": "whatsapp", "title": "hi"}],
                            "task": [{"id": "task:1", "source": "task", "title": "Call"}]},
@@ -369,4 +409,4 @@ class WhatsAppLeftoversTest(unittest.TestCase):
             self.assertEqual(store.dismissed, {"task:2": "2026-11-01"})
             self.assertEqual(store.overrides, {})
             store.save()
-            self.assertEqual(json.loads(path.read_text())["version"], 2)
+            self.assertEqual(Store(path).export()["version"], 2)
