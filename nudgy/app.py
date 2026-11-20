@@ -427,17 +427,20 @@ class Window(Gtk.ApplicationWindow):
 
     # ---- moving items by hand --------------------------------------------------------------------
     @staticmethod
-    def drop_zone(row_y: int, row_height: int, y: int) -> str:
-        """Top third of a row: before it. Middle third: becomes its step. Bottom third: after it."""
-        offset = y - row_y
-        return "before" if offset < row_height / 3 else "after" if offset > row_height * 2 / 3 else "inside"
+    def drop_zone(row_y: int, row_height: int, y: int, x: int = 0, width: int = 0) -> str:
+        """Like an outliner: dragging straight up or down moves the item (upper half of a row: before
+        it, lower half: after it); dragging it over the right half of a row makes it that row's step.
+        The grip sits at the left edge, so a plain up/down drag never nests by accident."""
+        if width and x > width / 2:
+            return "inside"
+        return "before" if y - row_y < row_height / 2 else "after"
 
-    def _drop_target(self, listing: Gtk.ListBox, y: int) -> tuple[int, str]:
+    def _drop_target(self, listing: Gtk.ListBox, x: int, y: int) -> tuple[int, str]:
         row = listing.get_row_at_y(y)
         if row is None:
             return len(listing.get_children()), "after"
         allocation = row.get_allocation()
-        zone = self.drop_zone(allocation.y, allocation.height, y)
+        zone = self.drop_zone(allocation.y, allocation.height, y, x, allocation.width)
         return row.get_index() + (1 if zone == "after" else 0), zone
 
     @staticmethod
@@ -475,9 +478,11 @@ class Window(Gtk.ApplicationWindow):
         row = listing.get_row_at_y(y)
         if row:
             listing.drag_highlight_row(row)
-            _index, zone = self._drop_target(listing, y)
-            hint = (f"Drop to make it a step of: {entries[row.get_index()][0].title[:40]}" if zone == "inside"
-                    else "Drop to move it here")
+            _index, zone = self._drop_target(listing, x, y)
+            title = entries[row.get_index()][0].title[:40]
+            hint = {"inside": f"Drop to make it a step of: {title}",
+                    "before": f"Drop to move it above: {title}",
+                    "after": f"Drop to move it below: {title}"}[zone]
             if self.problem != hint:
                 self.problem = hint
                 self._show_status()
@@ -489,9 +494,9 @@ class Window(Gtk.ApplicationWindow):
             self.problem = ""
             self._show_status()
 
-    def _dropped(self, listing, _context, _x, y, data, _info, _time, group: str, entries: list) -> None:
+    def _dropped(self, listing, _context, x, y, data, _info, _time, group: str, entries: list) -> None:
         item_id = data.get_data().decode()
-        index, zone = self._drop_target(listing, y)
+        index, zone = self._drop_target(listing, x, y)
         self._drag_left(listing)
         if zone == "inside":
             parent = entries[index][0]

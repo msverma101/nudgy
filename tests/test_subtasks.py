@@ -61,11 +61,17 @@ class Subtasks(unittest.TestCase):
 
 
 class DropZones(unittest.TestCase):
-    def test_thirds(self):
+    def test_straight_drag_moves(self):
         from nudgy.app import Window
-        self.assertEqual(Window.drop_zone(100, 60, 105), "before")
-        self.assertEqual(Window.drop_zone(100, 60, 130), "inside")
-        self.assertEqual(Window.drop_zone(100, 60, 155), "after")
+        self.assertEqual(Window.drop_zone(100, 60, 105, x=20, width=300), "before")
+        self.assertEqual(Window.drop_zone(100, 60, 129, x=20, width=300), "before")    # middle is not nesting
+        self.assertEqual(Window.drop_zone(100, 60, 131, x=20, width=300), "after")
+        self.assertEqual(Window.drop_zone(100, 60, 155, x=20, width=300), "after")
+
+    def test_drag_to_the_right_nests(self):
+        from nudgy.app import Window
+        self.assertEqual(Window.drop_zone(100, 60, 105, x=200, width=300), "inside")
+        self.assertEqual(Window.drop_zone(100, 60, 155, x=200, width=300), "inside")
 
 
 if __name__ == "__main__":

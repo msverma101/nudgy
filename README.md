@@ -112,8 +112,8 @@ To remove it: `./uninstall.sh` (keeps your settings and sign-ins) or `./uninstal
 - **Search.** 🔍 in the top bar, or Ctrl+F. It looks through everything, including what Important
   only hides: titles, details (like the sender or list), the source name ("gmail", "signal") and steps.
   Every word must match, in any order and any case. Esc closes the search; Esc again closes the list.
-- **Steps from other items.** Drag an item (⠿) onto the middle of another to make it a step there
-  (top or bottom edge of a row still just reorders), or right-click > Make a step of…. The step keeps
+- **Steps from other items.** Drag an item (⠿) to the right, over the right half of another, to make it
+  a step there (dragging straight up or down just reorders), or right-click > Make a step of…. The step keeps
   the item's link, so clicking it still opens the email or page. Right-click a step > Make it a
   separate item to take it back out. Ctrl+Z undoes either.
 - **Focus check (off by default; right-click the pet to turn it on).** Every 3 minutes the pet reads the title of the window in front (no screenshots,
