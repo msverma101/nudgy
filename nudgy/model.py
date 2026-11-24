@@ -418,11 +418,17 @@ class Store:
         try:
             self.db = Database(self.path)
             raw = self.db.read()
-        except sqlite3.DatabaseError:
-            # Keep the damaged file for recovery rather than overwriting it.
+        except sqlite3.DatabaseError as error:
+            if isinstance(error, sqlite3.OperationalError):
+                raise               # locked, disk full, no permission: the data itself is fine
+            if self.db is not None:
+                self.db.close()
+            # Keep the damaged files for recovery rather than overwriting them.
             self._set_aside(self.path)
             for suffix in ("-wal", "-shm"):
-                Path(f"{self.path}{suffix}").unlink(missing_ok=True)
+                side = Path(f"{self.path}{suffix}")
+                if side.exists():
+                    side.replace(Path(f"{self.path.with_suffix('.corrupt')}{suffix}"))
             self.db = Database(self.path)
             raw = {}
         if not raw and self.legacy.exists():

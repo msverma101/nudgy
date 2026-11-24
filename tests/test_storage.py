@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import sqlite3
 import stat
 import tempfile
 import unittest
@@ -60,6 +61,19 @@ class Database_(unittest.TestCase):
             self.addCleanup(second.close)
             first.write({"notes": ["a"]})
             self.assertEqual(second.read(), {"notes": ["a"]})
+
+
+class TemporaryErrors(unittest.TestCase):
+    def test_a_locked_database_is_not_treated_as_corrupt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "nudgy.db"
+            Store(path).save()
+            locked = sqlite3.OperationalError("database is locked")
+            with mock.patch.object(Database, "read", side_effect=locked), \
+                    self.assertRaises(sqlite3.OperationalError):
+                Store(path)
+            self.assertTrue(path.exists())
+            self.assertFalse(path.with_suffix(".corrupt").exists())
 
 
 if __name__ == "__main__":
