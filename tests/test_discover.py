@@ -1,4 +1,6 @@
+import locale
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 from nudgy import discover
@@ -148,3 +150,32 @@ class OptIn(unittest.TestCase):
             from nudgy import settings
             settings.update("discover", {"enabled": True, "rss": []})
             self.assertTrue(discover.config()["enabled"])
+
+
+class SharedPagesAndLocales(unittest.TestCase):
+    NOW = datetime(2026, 11, 24, 12, tzinfo=timezone.utc)
+
+    def test_events_on_one_page_get_their_own_ids(self):
+        entry = {"title": "AI Hackathon", "about": "Machine learning, prizes", "where": "Berlin, Germany",
+                 "url": "https://example.org/sprints"}
+        with mock.patch.object(discover, "MIN_FIT", -1000):
+            items = discover.from_watchlist([{**entry, "start": "2026-12-04"}, {**entry, "start": "2027-01-08"}],
+                                            self.NOW)
+        self.assertEqual([i.id for i in items], ["potential:https://example.org/sprints#2026-12-04",
+                                                 "potential:https://example.org/sprints#2027-01-08"])
+
+    def test_english_month_names_need_no_english_locale(self):
+        feed = ("<rss><channel><item><title>AI Hackathon</title><link>https://example.org/a</link><description>"
+                "AI Hackathon is happening on December 10, 2026, Berlin, Germany. More"
+                "</description></item></channel></rss>")
+        before = locale.setlocale(locale.LC_TIME)
+        self.addCleanup(locale.setlocale, locale.LC_TIME, before)
+        for name in ("de_DE.UTF-8", "de_DE.utf8"):
+            try:
+                locale.setlocale(locale.LC_TIME, name)      # where installed, this is the case that failed
+                break
+            except locale.Error:
+                pass
+        with mock.patch.object(discover, "MIN_FIT", -1000):
+            items = discover.from_rss(feed, self.NOW)
+        self.assertEqual([i.due[:10] for i in items], ["2026-12-10"])

@@ -293,6 +293,11 @@ def from_luma_city(html: str, now: datetime) -> list[Item]:
     return items
 
 
+# Not strptime's %B: GTK sets the locale, so on a German desktop that expects "Dezember".
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December"]
+
+
 def from_rss(text: str, now: datetime) -> list[Item]:
     items = []
     for entry in ElementTree.fromstring(text).iter("item"):
@@ -300,7 +305,10 @@ def from_rss(text: str, now: datetime) -> list[Item]:
         about = entry.findtext("description") or ""
         said = re.search(r"happening on ([A-Z][a-z]+ \d{1,2}, \d{4}),\s*(.+?)\.\s*(?:More|$)", about)
         if said:
-            start = datetime.strptime(said.group(1), "%B %d, %Y").replace(hour=9, tzinfo=now.tzinfo)
+            month, day, year = re.split(r"[ ,]+", said.group(1))
+            if month not in MONTHS:
+                continue
+            start = datetime(int(year), MONTHS.index(month) + 1, int(day), 9, tzinfo=now.tzinfo)
             where = said.group(2)
         else:
             try:
@@ -327,6 +335,7 @@ def _jobs(cfg: dict) -> list[tuple[str, str, str]]:
 
 def from_watchlist(entries: list[dict], now: datetime) -> list[Item]:
     items = []
+    urls = [entry.get("url") for entry in entries]
     for entry in entries:
         start = datetime.fromisoformat(entry["start"])
         start = start.replace(hour=9, tzinfo=now.tzinfo) if start.tzinfo is None else start
@@ -334,6 +343,8 @@ def from_watchlist(entries: list[dict], now: datetime) -> list[Item]:
         item = _event(entry["title"], entry.get("about", ""), entry.get("where", ""), start, end, entry.get("url", ""),
                       "watchlist")
         if item:
+            if item.url and urls.count(item.url) > 1:      # one page for several events: each needs its own id
+                item.id = f"{item.id}#{start.date().isoformat()}"
             items.append(item)
     return items
 
